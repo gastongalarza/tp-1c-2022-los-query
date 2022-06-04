@@ -195,13 +195,119 @@ FOREIGN KEY (tele_auto_codigo) REFERENCES LOS_QUERY.TELEMETRIA_AUTO(tele_auto_co
 FOREIGN KEY (tele_neumatico_nro_serie) REFERENCES LOS_QUERY.NEUMATICO(neumatico_nro_serie)
 )
 
-GO
-
 --CREACIÓN DE VISTAS--------------------------------
 
 
 --CREACION DE INDICES-------------------------------
 
 
+--CREACION DE STORE PROCEDURES-------------------------------
+/*
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_memorias_ram')
+	DROP PROCEDURE migrar_memorias_ram
 
+No entiendo de donde sacan el name, pero ese if lo hacen siempre para no repetir los procedures
+*/
+
+--Segun entiendo, estos procedimientos son como funciones que se ejecutan mas abajo, y lo que hacen es tomar de la tabla principal
+-- la informacion que se esta solicitando y que sean siempre distintos con el distinct
+
+GO --el go hay que ponerlo siempre para que puedan funcionar los procedures al estar en el mismo archivo
+CREATE PROCEDURE migrar_circuito
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.circuito (CIRCUITO_CODIGO, CIRCUITO_NOMBRE, CIRCUITO_PAIS_CODIGO)
+	SELECT DISTINCT CIRCUITO_CODIGO, CIRCUITO_NOMBRE, CIRCUITO_PAIS_CODIGO
+	FROM gd_esquema.Maestra
+	WHERE CIRCUITO_CODIGO IS NOT NULL
+  END
+
+GO
+CREATE PROCEDURE migrar_carrera
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.carrera (CODIGO_CARRERA, CARRERA_CIRCUITO_CODIGO, CARRERA_FECHA, CARRERA_CLIMA, CARRERA_CANT_VUELTAS, CARRERA_TOTAL_CARRERA)
+	SELECT DISTINCT CODIGO_CARRERA, CARRERA_CIRCUITO_CODIGO, CARRERA_FECHA, CARRERA_CLIMA, CARRERA_CANT_VUELTAS, CARRERA_TOTAL_CARRERA
+	FROM gd_esquema.Maestra
+	WHERE CODIGO_CARRERA IS NOT NULL AND CARRERA_CIRCUITO_CODIGO IS NOT NULL --no se con que criterio toman las cosas que no tienen que ser null
+  END
+
+GO
+CREATE PROCEDURE migrar_sector
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.sector (CODIGO_SECTOR, SECTOR_DISTANCIA, SECTOR_TIPO, SECTOR_CIRCUITO_CODIGO, SECTOR_CIRCUITO_NOMBRE)
+	SELECT DISTINCT CODIGO_SECTOR, SECTOR_DISTANCIA, SECTOR_TIPO, SECTOR_CIRCUITO_CODIGO, SECTOR_CIRCUITO_NOMBRE
+	FROM gd_esquema.Maestra
+	WHERE CODIGO_SECTOR IS NOT NULL
+  END
+
+GO
+CREATE PROCEDURE migrar_escuderia
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.ESCUDERIA (escuderia_nombre, escuderia_pais)
+	SELECT DISTINCT ESCUDERIA_NOMBRE, ESCUDERIA_NACIONALIDAD
+	FROM gd_esquema.Maestra
+	WHERE ESCUDERIA_NOMBRE IS NOT NULL
+  END
+/*
+este para mi esta mal, habria que pensar bien como haccerlo debido a que los neumaticos en el nombre tienen un numero y ademas dicen viejo o nuevo
+GO
+CREATE PROCEDURE migrar_neumatico
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.neumatico (neumatico_nro_serie, neumatico_posicion, neumatico_tipo)
+	SELECT DISTINCT NEUMATICO_NRO_SERIE, NEUMATICO_POSICION, NEUMATICO_TIPO
+	FROM gd_esquema.Maestra
+	WHERE NEUMATICO_NRO_SERIE IS NOT NULL
+  END
+*/
+GO
+CREATE PROCEDURE migrar_incidente
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.incidente (INCIDENTE_BANDERA, INCIDENTE_NUMERO_VUELTA, INCIDENTE_TIPO, INCIDENTE_CODIGO_CARRERA, INCIDENTE_CODIGO_SECTOR)
+	SELECT DISTINCT INCIDENTE_BANDERA, INCIDENTE_NUMERO_VUELTA, INCIDENTE_TIPO, INCIDENTE_CODIGO_CARRERA, INCIDENTE_CODIGO_SECTOR
+	FROM gd_esquema.Maestra
+	WHERE INCIDENTE_BANDERA IS NOT NULL 
+		AND INCIDENTE_NUMERO_VUELTA IS NOT NULL 
+		AND INCIDENTE_TIPO IS NOT NULL
+		AND INCIDENTE_CODIGO_CARRERA IS NOT NULL
+		AND INCIDENTE_CODIGO_SECTOR IS NOT NULL --quiero creer que las claves (foraneas o primarias) son las que no tienen que ser null
+  END
+
+GO
+CREATE PROCEDURE migrar_auto
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.auto (auto_numero, auto_modelo, auto_escuderia, auto_incidente_tipo, auto_incidente_vuelta, auto_incidente_bandera)
+	SELECT DISTINCT AUTO_NUMERO, AUTO_MODELO, AUTO_ESCUDERIA, AUTO_INCIDENTE_TIPO, AUTO_INCIDENTE_VUELTA, AUTO_INCIDENTE_BANDERA
+	FROM gd_esquema.Maestra
+	WHERE AUTO_NUMERO IS NOT NULL 
+		AND AUTO_MODELO IS NOT NULL 
+		AND AUTO_INCIDENTE_TIPO IS NOT NULL
+		AND AUTO_INCIDENTE_VUELTA IS NOT NULL
+		AND AUTO_INCIDENTE_BANDERA IS NOT NULL
+  END
+
+GO
+CREATE PROCEDURE migrar_motor
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.motor (motor_nro_serie, motor_modelo)
+	SELECT DISTINCT TELE_MOTOR_NRO_SERIE, TELE_MOTOR_MODELO
+	FROM gd_esquema.Maestra
+	WHERE TELE_MOTOR_NRO_SERIE IS NOT NULL
+  END
+
+GO
+CREATE PROCEDURE migrar_caja
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.caja (caja_nro_serie, caja_modelo)
+	SELECT DISTINCT TELE_CAJA_NRO_SERIE, TELE_CAJA_MODELO
+	FROM gd_esquema.Maestra
+	WHERE TELE_CAJA_NRO_SERIE IS NOT NULL
+  END
 
