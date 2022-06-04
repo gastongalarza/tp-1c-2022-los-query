@@ -311,3 +311,128 @@ CREATE PROCEDURE migrar_caja
 	WHERE TELE_CAJA_NRO_SERIE IS NOT NULL
   END
 
+GO
+CREATE PROCEDURE migrar_telemetria_auto
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.telemetria_auto (tele_auto_codigo, tele_auto_numero, tele_auto_modelo, tele_codigo_carrera, tele_codigo_circuito, tele_codigo_sector, tele_caja_nro_serie, 
+		tele_motor_nro_serie, tele_numero_vuelta, tele_distancia_vuelta, tele_distancia_carrera, tele_auto_posicion, tele_tiempo_vuelta, tele_auto_velocidad, tele_auto_combustible,
+		tele_caja_temp_aceite, tele_caja_rpm, tele_caja_desgaste, tele_motor_potencia, tele_motor_rpm, tele_motor_temp_aceite, tele_motor_temo_agua)
+	SELECT DISTINCT TELE_AUTO_CODIGO, TELE_AUTO_NUMERO, TELE_AUTO_MODELO, TELE_CODIGO_CARRERA, TELE_CODIGO_CIRCUITO, TELE_CODIGO_SECTOR, TELE_CAJA_NRO_SERIE, 
+		TELE_MOTOR_NRO_SERIE, TELE_NUMERO_VUELTA, TELE_DISTANCIA_VUELTA, TELE_DISTANCIA_CARRERA, TELE_AUTO_POSICION, TELE_TIEMPO_VUELTA, TELE_AUTO_VELOCIDAD, TELE_AUTO_COMBUSTIBLE
+		TELE_CAJA_TEMP_ACEITE, TELE_CAJA_RPM, TELE_CAJA_DESGASTE, TELE_MOTOR_POTENCIA, TELE_MOTOR_RPM, TELE_MOTOR_TEMP_ACEITE, TELE_MOTOR_TEMP_AGUA
+	FROM gd_esquema.Maestra
+	WHERE TELE_AUTO_CODIGO IS NOT NULL
+  END
+
+/* POR LAS DUDAS NO LE AGREGO LO DE LAS CLAVES NOT NULL EN EL WHERE, SI SABEN QUE ESTA BIEN AGREGENLO UDS
+PRIMARY KEY (tele_auto_codigo),
+FOREIGN KEY (tele_auto_numero, tele_auto_modelo)
+REFERENCES LOS_QUERY.auto(auto_numero, auto_modelo),
+FOREIGN KEY (tele_codigo_carrera) REFERENCES LOS_QUERY.carrera(codigo_carrera),
+FOREIGN KEY (tele_codigo_sector) REFERENCES LOS_QUERY.SECTOR(codigo_sector),
+FOREIGN KEY (tele_caja_nro_serie) REFERENCES LOS_QUERY.CAJA(caja_nro_serie),
+FOREIGN KEY (tele_motor_nro_serie) REFERENCES LOS_QUERY.MOTOR(motor_nro_serie)*/
+
+GO
+CREATE PROCEDURE migrar_frenos
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.freno (TELE_FRENO_NRO_SERIE, TELE_FRENO_POSICION, TELE_FRENO_TAMANIO_DISCO)
+	SELECT DISTINCT TELE_FRENO_NRO_SERIE, TELE_FRENO_POSICION, TELE_FRENO_TAMANIO_DISCO
+	FROM gd_esquema.Maestra
+	WHERE TELE_FRENO_NRO_SERIE IS NOT NULL
+  END
+
+GO
+CREATE PROCEDURE migrar_parada_box
+AS
+  BEGIN
+    INSERT INTO LOS_QUERY.parada_box (PARADA_VUELTA, PARADA_CODIGO_CARRERA, PARADA_AUTO_NUMERO, PARADA_AUTO_MODELO, PARADA_DURACION)
+	SELECT DISTINCT PARADA_VUELTA, PARADA_CODIGO_CARRERA, PARADA_AUTO_NUMERO, PARADA_AUTO_MODELO, PARADA_DURACION
+	FROM gd_esquema.Maestra
+	WHERE PARADA_VUELTA IS NOT NULL AND PARADA_CODIGO_CARRERA IS NOT NULL AND PARADA_AUTO_NUMERO IS NOT NULL
+  END
+
+/* mismo problema que con los neumaticos, hay que revisar como lo podemos hacer
+tb hay que agregar medicion por neumatico que tendria el mismo problema
+GO
+CREATE PROCEDURE migrar_cambio_de_neumatico
+AS
+  BEGIN
+    INSERT INTO LOS_QUERY.cambio_de_neumatico (CAMBIO_PARADA, CAMBIO_SERIE_NEUMATICO_VIEJO, CAMBIO_SERIE_NEUMATICO_NUEVO)
+	SELECT DISTINCT CAMBIO_PARADA, CAMBIO_SERIE_NEUMATICO_VIEJO, CAMBIO_SERIE_NEUMATICO_NUEVO
+	FROM gd_esquema.Maestra
+	WHERE CAMBIO_PARADA IS NOT NULL
+  END*/
+
+GO --creo que aca pasaria lo mismo que con los neumaticos
+CREATE PROCEDURE migrar_frenos_por_medicion
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.frenos_por_medicion (AUTO_CODIGO, TELE_FRENO_NRO_SERIE, TELE_FRENO_TEMPERATURA)
+	SELECT DISTINCT AUTO_CODIGO, TELE_FRENO_NRO_SERIE, TELE_FRENO_TEMPERATURA
+	FROM gd_esquema.Maestra
+	WHERE AUTO_CODIGO IS NOT NULL
+  END
+
+GO
+CREATE PROCEDURE migrar_piloto
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.frenos_por_medicion (piloto_nombre, piloto_apellido, piloto_auto_numero, piloto_auto_modelo, piloto_nacionalidad, piloto_fecha_nacimiento)
+	SELECT DISTINCT PILOTO_NOMBRE, PILOTO_APELLIDO, PILOTO_AUTO_NUMERO, PILOTO_AUTO_MODELO, PILOTO_NACIONALIDAD, PILOTO_FECHA_NACIMIENTO
+	FROM gd_esquema.Maestra
+	WHERE PILOTO_NOMBRE IS NOT NULL AND PILOTO_AUTO_NUMERO IS NOT NULL
+  END
+
+--EJECUCION DE PROCEDIMIENTOS--------------------------------
+ BEGIN TRANSACTION
+ BEGIN TRY
+	EXECUTE migrar_circuito
+	EXECUTE migrar_carrera
+	EXECUTE migrar_sector
+	EXECUTE migrar_escuderia
+	EXECUTE migrar_neumatico
+	EXECUTE migrar_incidente
+	EXECUTE migrar_auto
+	EXECUTE migrar_motor
+	EXECUTE migrar_caja
+	EXECUTE migrar_telemetria_auto
+	EXECUTE migrar_frenos
+	EXECUTE migrar_parada_box
+	EXECUTE migrar_cambio_de_neumatico
+	EXECUTE migrar_medicion_por_neumatico
+	EXECUTE migrar_frenos_por_medicion
+	EXECUTE migrar_piloto
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+	THROW 50001, 'Error al migrar las tablas, verifique que las nuevas tablas se encuentren vacías o bien ejecute un DROP de todas las nuevas tablas y vuelva a intentarlo.',1;
+END CATCH
+
+	IF (EXISTS (SELECT 1 FROM LOS_QUERY.circuito)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.carrera)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.sector)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.ESCUDERIA)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.neumatico)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.incidente)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.auto)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.motor)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.caja)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.telemetria_auto)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.freno)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.parada_box)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.cambio_de_neumatico)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.frenos_por_medicion)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.piloto)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.medicion_por_neumatico))
+   BEGIN
+	PRINT 'Tablas migradas correctamente.';
+	COMMIT TRANSACTION;
+   END
+	 ELSE
+   BEGIN
+    ROLLBACK TRANSACTION;
+	THROW 50002, 'Hubo un error al migrar una o más tablas. Todos los cambios fueron deshechos, ninguna tabla fue cargada en la base.',1;
+   END
