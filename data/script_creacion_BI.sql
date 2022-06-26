@@ -10,14 +10,14 @@ cuatrimestre int not null
 CREATE TABLE LOS_QUERY.BI_dim_auto (
 auto_numero int,
 auto_modelo VARCHAR(255),
-auto_escuderia VARCHAR(255),
-auto_incidente_tipo VARCHAR(255),
-auto_incidente_vuelta decimal(18,0),
-auto_incidente_bandera varchar(255),
+escuderia VARCHAR(255),
+incidente_tipo VARCHAR(255),
+incidente_vuelta decimal(18,0),
+incidente_bandera varchar(255),
 PRIMARY KEY (auto_numero, auto_modelo),
-FOREIGN KEY (auto_incidente_tipo, auto_incidente_vuelta, auto_incidente_bandera) 
-REFERENCES LOS_QUERY.incidente(INCIDENTE_TIPO, incidente_numero_vuelta, incidente_bandera),
-FOREIGN KEY (auto_escuderia) REFERENCES LOS_QUERY.ESCUDERIA(escuderia_nombre)
+FOREIGN KEY (incidente_tipo, incidente_vuelta, incidente_bandera) 
+REFERENCES LOS_QUERY.BI_dim_incidente(tipo, nro_vuelta, bandera),
+FOREIGN KEY (escuderia) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre)
 )
 
 CREATE TABLE LOS_QUERY.BI_dim_escuderia (
@@ -31,6 +31,7 @@ CIRCUITO_NOMBRE varchar(255),
 CIRCUITO_PAIS_CODIGO varchar(255)
 );
 
+-- para mi esta re al pedo pq no lo usamos nunca en las vistas pero bueno, lo pide ahi
 CREATE TABLE LOS_QUERY.BI_dim_piloto (
 piloto_nombre VARCHAR(50),
 piloto_apellido VARCHAR(50),
@@ -40,7 +41,7 @@ piloto_nacionalidad VARCHAR(50),
 piloto_fecha_nacimiento date,
 PRIMARY KEY (piloto_nombre, piloto_apellido),
 FOREIGN KEY (piloto_auto_numero, piloto_auto_modelo)
-REFERENCES LOS_QUERY.auto(auto_numero, auto_modelo)
+REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo)
 )
 
 CREATE TABLE LOS_QUERY.BI_dim_sector(
@@ -58,14 +59,12 @@ neumatico_tipo VARCHAR(255)
 )
 
 CREATE TABLE LOS_QUERY.BI_dim_incidente (
-INCIDENTE_BANDERA varchar(255),
-INCIDENTE_NUMERO_VUELTA decimal not null,
-INCIDENTE_TIPO varchar(255),
-INCIDENTE_CODIGO_CARRERA int null,
-INCIDENTE_CODIGO_SECTOR int null,
-PRIMARY KEY (INCIDENTE_BANDERA, INCIDENTE_NUMERO_VUELTA, INCIDENTE_TIPO),
-FOREIGN KEY (INCIDENTE_CODIGO_CARRERA) REFERENCES LOS_QUERY.carrera(CODIGO_CARRERA),
-FOREIGN KEY (INCIDENTE_CODIGO_SECTOR) REFERENCES LOS_QUERY.sector(CODIGO_SECTOR)
+bandera varchar(255),
+nro_vuelta decimal not null,
+tipo varchar(255),
+codigo_sector int null,
+PRIMARY KEY (bandera, nro_vuelta, tipo),
+FOREIGN KEY (INCIDENTE_CODIGO_SECTOR) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector)
 );
 
 --tablas que considero que faltaron en las dimensiones
@@ -160,8 +159,40 @@ velocidad decimal(18,2), --se obtienen todas las velocidades haciendo un group_b
 ciruito_codigo int,
 codigo_sector int,
 PRIMARY KEY(auto_numero, auto_modelo, ciruito_codigo, codigo_sector),
-FOREIGN KEY (auto_numero) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero),
-FOREIGN KEY (auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_modelo),
+FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
 FOREIGN KEY (ciruito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
+FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_circuito(codigo_sector)
+);
+
+/*
+esta tabla contendria el tiempo de todas las paradas que hizo un auto, habria que despues calcularle el promedio 
+al auto y desp para obtener el promedio de la escuderia habria que hacer el promedio de todos los autos que 
+pertenezcan a la misma
+
+seguro se pueda implementar mejor, esta es solo una idea
+
+desp se me ocurrio agregarle el circuito a esta tabla para poder a partir de esta tabla contar la cantidad de 
+paradas por escuderia en cada circuito
+
+tb desp a partir de esta tabla se puede ordenar por tiempo y obtener los circuitos donde hay paradas mas largas
+*/
+CREATE TABLE LOS_QUERY.BI_tiempo_parada_auto (
+--no se cual seria la clave primaria de la parada en el otro script
+auto_numero int,
+auto_modelo VARCHAR(255),
+duracion_parada decimal, --se obtiene a partir de la tabla parada box del script inicial
+cuatrimestre int, --se obtiene haciendo un join con la tabla de carrera ya que ahi esta la fecha de la misma, podemos hacer una funcion para obtener el cuatri
+circuito_codigo int, --tb se obtiene de la carrera
+FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
+FOREIGN KEY (ciruito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
+);
+
+--apartir de esta tabla habria que hacer el promedio por sector para cada escuderia (entiendo que quieren saber cant de incidentes por año)
+CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
+--le pondria un id como clave primaria
+escuderia_nombre VARCHAR(255),
+codigo_sector int,
+anio int, --podria ser una fecha (se obtiene de la fecha de la carrera en la que fue ese incidente)
+FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
 FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_circuito(codigo_sector)
 );
