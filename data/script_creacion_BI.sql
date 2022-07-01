@@ -47,7 +47,8 @@ DROP TABLE LOS_QUERY.BI_dim_escuderia
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tiempos')
 DROP TABLE LOS_QUERY.BI_dim_tiempos
 
-CREATE TABLE  LOS_QUERY.BI_dim_tiempos (
+
+CREATE TABLE LOS_QUERY.BI_dim_tiempos (
 codigo_tiempo int IDENTITY PRIMARY KEY,
 anio int,
 cuatrimestre int not null
@@ -133,10 +134,10 @@ motor_modelo VARCHAR(255) not null
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas facilitadoras para el armado de las vistas --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+/*
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tiempos')
 DROP TABLE LOS_QUERY.BI_dim_tiempos
-
+*/
 /*
 al hacer el procedure para cargar esta tabla, podemos ya ir obteniendo los datos levemente procesados para que en
 la vista solo tengamos que hacer el promedio del desgaste agrupando por circuito. Estariamos partiendo el problema
@@ -244,6 +245,49 @@ anio int, --podria ser una fecha (se obtiene de la fecha de la carrera en la que
 FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
 FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector)
 );
+
+--Gas
+CREATE TABLE LOS_QUERY.BI_fact_parada_box (
+    codigo_tiempo int,
+	circuito_codigo int,
+	escuderia_nombre varchar(255),
+	tiempo_parada decimal(18,2),
+	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo),
+	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
+	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre)
+);
+
+---------------------------------------------------
+-- BORRADO DE FUNCIONES
+---------------------------------------------------
+
+IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_cuatrimestre')
+	DROP FUNCTION LOS_QUERY.get_cuatrimestre
+
+---------------------------------------------------
+-- FUNCIONES
+---------------------------------------------------
+
+CREATE FUNCTION LOS_QUERY.get_cuatrimestre(@fecha DATE)
+	RETURNS INT
+	AS
+	BEGIN
+		IF(MONTH(@fecha) BETWEEN 1 AND 4)
+		BEGIN
+			RETURN 1
+		END
+		IF(MONTH(@fecha) BETWEEN 5 AND 8)
+		BEGIN
+			RETURN 2
+		END
+		IF(MONTH(@fecha) BETWEEN 9 AND 12)
+		BEGIN
+			RETURN 3
+		END
+			RETURN NULL
+    END
+   
+GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de procedimientos --
@@ -403,3 +447,47 @@ BEGIN
 	DEALLOCATE date_cursor
 END
 */
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_parada_box')
+	DROP PROCEDURE sp_migrar_fact_parada_box
+GO
+
+CREATE PROCEDURE sp_migrar_fact_parada_box
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.BI_fact_parada_box(codigo_tiempo, circuito_codigo, escuderia_nombre, tiempo_parada)
+	SELECT tiempo.codigo_tiempo, carrera.CARRERA_CIRCUITO_CODIGO, auto.auto_escuderia, PARADA_DURACION
+	FROM LOS_QUERY.parada_box
+		JOIN LOS_QUERY.carrera ON parada_box.PARADA_CODIGO_CARRERA = carrera.CODIGO_CARRERA
+	    JOIN LOS_QUERY.BI_dim_tiempos tiempo ON YEAR(carrera.CARRERA_FECHA) = tiempo.anio
+		    AND LOS_QUERY.get_cuatrimestre(carrera.CARRERA_FECHA) = tiempo.cuatrimestre
+	    JOIN LOS_QUERY.auto ON parada_box.PARADA_AUTO_NUMERO = auto.auto_numero
+		    AND parada_box.PARADA_AUTO_MODELO = auto.auto_modelo
+  END
+GO
+
+---------------------------------------------------
+-- ELIMINACION DE VISTAS EN CASO DE QUE EXISTAN
+---------------------------------------------------
+
+--Item 5
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_tiempo_promedio_por_escuderia')
+	DROP VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia
+GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- CREACION DE VISTAS --
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+-- Item 5
+-- "Tiempo promedio que tardo cada escuderia en las paradas por cuatrimestre"
+CREATE VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia AS
+	SELECT
+		e.escuderia_nombre AS 'Escuderia',
+		t.cuatrimestre AS 'Cuatrimestre',
+		AVG(p_box.tiempo_parada) AS 'Tiempo promedio tardado en paradas'
+	FROM LOS_QUERY.BI_fact_parada_box p_box
+		JOIN LOS_QUERY.BI_dim_escuderia e ON e.escuderia_nombre = p_box.escuderia_nombre
+		JOIN LOS_QUERY.BI_dim_tiempos t ON t.codigo_tiempo = p_box.codigo_tiempo
+	GROUP BY e.escuderia_nombre, t.cuatrimestre
+GO
