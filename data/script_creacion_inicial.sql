@@ -93,7 +93,7 @@ CREATE SCHEMA LOS_QUERY;
 GO
 
 ---------------------------------------------------
--- CREACIï¿½N DE TABLAS
+-- CREACIÓN DE TABLAS
 ---------------------------------------------------
 
 CREATE TABLE LOS_QUERY.circuito(
@@ -303,7 +303,7 @@ REFERENCES LOS_QUERY.auto(auto_numero,auto_modelo)
 GO
 
 ----------------------------------------------------
--- CREACIï¿½N DE VISTAS
+-- CREACIÓN DE VISTAS
 ----------------------------------------------------
 
 CREATE VIEW LOS_QUERY.vi_cambios_por_auto AS

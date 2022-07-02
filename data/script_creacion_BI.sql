@@ -74,17 +74,17 @@ anio int,
 cuatrimestre int not null
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_caja (
+CREATE TABLE LOS_QUERY.BI_dim_caja (--
 caja_nro_serie VARCHAR(255) PRIMARY KEY,
 caja_modelo VARCHAR(255)
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_escuderia (
+CREATE TABLE LOS_QUERY.BI_dim_escuderia (--
 escuderia_nombre VARCHAR(255) PRIMARY KEY,
 escuderia_pais VARCHAR(255)	
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_circuito (
+CREATE TABLE LOS_QUERY.BI_dim_circuito (--
 CIRCUITO_CODIGO int PRIMARY KEY,
 CIRCUITO_NOMBRE varchar(255),
 CIRCUITO_PAIS_CODIGO varchar(255)
@@ -132,7 +132,7 @@ FOREIGN KEY (piloto_auto_numero, piloto_auto_modelo)
 REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo)
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_neumatico (
+CREATE TABLE LOS_QUERY.BI_dim_neumatico (--
 neumatico_nro_serie VARCHAR(255) PRIMARY KEY,
 neumatico_posicion VARCHAR(255),
 neumatico_tipo VARCHAR(255)
@@ -140,13 +140,13 @@ neumatico_tipo VARCHAR(255)
 
 --tablas que considero que faltaron en las dimensiones
 
-CREATE TABLE LOS_QUERY.BI_dim_freno (
+CREATE TABLE LOS_QUERY.BI_dim_freno (--
 FRENO_NRO_SERIE varchar(255) PRIMARY KEY,
 FRENO_POSICION varchar(255) not null,
-FRENO_TAMANIO_DISCO decimal --si lo que hay que considerar para el calculo del desgaste es el tamaño creo que hay que sacarlo de esta tabla, sino no se de donde sacar el desgaste
+desgaste decimal(18,6)
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_motor (
+CREATE TABLE LOS_QUERY.BI_dim_motor (--
 motor_nro_serie VARCHAR(255) not null PRIMARY KEY,
 motor_modelo VARCHAR(255) not null
 )
@@ -194,7 +194,7 @@ PRIMARY KEY(motor_nro_serie, numero_vuelta, ciruito_codigo),
 FOREIGN KEY (motor_nro_serie) REFERENCES LOS_QUERY.BI_dim_motor(motor_nro_serie),
 FOREIGN KEY (ciruito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
 );
--- todo drop table
+
 CREATE TABLE LOS_QUERY.BI_desgaste_caja (
 caja_nro_serie VARCHAR(255),
 numero_vuelta int,
@@ -277,16 +277,12 @@ CREATE TABLE LOS_QUERY.BI_fact_parada_box (
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre)
 );
 
----------------------------------------------------
--- BORRADO DE FUNCIONES
----------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Creacion de Funciones --
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_cuatrimestre')
 	DROP FUNCTION LOS_QUERY.get_cuatrimestre
-
----------------------------------------------------
--- FUNCIONES
----------------------------------------------------
 
 --Podria hacerse con un switch case pero solo esta disponible en versiones de sqlserver mas recientes
 CREATE FUNCTION LOS_QUERY.get_cuatrimestre(@fecha DATE)
@@ -306,7 +302,7 @@ CREATE FUNCTION LOS_QUERY.get_cuatrimestre(@fecha DATE)
 			RETURN 3
 		END
 			RETURN NULL
-    END
+	END
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de procedimientos --
@@ -326,8 +322,6 @@ CREATE PROCEDURE sp_bi_dim_motor
   END
 GO
 
--- EXECUTE sp_bi_dim_motor
-
 IF EXISTS (SELECT name FROM sys.procedures WHERE name = 'sp_bi_dim_freno')
 DROP PROCEDURE sp_bi_dim_freno
 GO
@@ -341,23 +335,6 @@ CREATE PROCEDURE sp_bi_dim_freno
 	WHERE freno_nro_serie IS NOT NULL and freno_posicion IS NOT NULL
   END
 GO
-
-/*
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_neumatico')
-DROP TABLE LOS_QUERY.BI_dim_neumatico
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_piloto')
-DROP TABLE LOS_QUERY.BI_dim_piloto
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_auto')
-DROP TABLE LOS_QUERY.BI_dim_auto
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_incidente')
-DROP TABLE LOS_QUERY.BI_dim_incidente
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_sector')
-DROP TABLE LOS_QUERY.BI_dim_sector
-*/
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_circuito')
 	DROP PROCEDURE sp_bi_dim_circuito
@@ -373,19 +350,77 @@ CREATE PROCEDURE sp_bi_dim_circuito
   END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_neumatico')
+	DROP PROCEDURE sp_bi_dim_neumatico
+GO
+
+CREATE PROCEDURE sp_bi_dim_neumatico
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.BI_dim_neumatico (neumatico_nro_serie, neumatico_posicion, neumatico_tipo)
+	SELECT DISTINCT neumatico_nro_serie, neumatico_posicion, neumatico_tipo
+	FROM LOS_QUERY.neumatico
+	WHERE neumatico_nro_serie IS NOT NULL
+  END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_caja')
+	DROP PROCEDURE sp_bi_dim_caja
+GO
+
+CREATE PROCEDURE sp_bi_dim_caja
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.BI_dim_caja (caja_nro_serie, caja_modelo)
+	SELECT DISTINCT caja_nro_serie, caja_modelo
+	FROM LOS_QUERY.caja
+	WHERE caja_nro_serie IS NOT NULL
+  END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_escuderia')
+	DROP PROCEDURE sp_bi_dim_escuderia
+GO
+
+CREATE PROCEDURE sp_bi_dim_escuderia
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.BI_dim_escuderia (escuderia_nombre, escuderia_pais)
+	SELECT DISTINCT escuderia_nombre, escuderia_pais
+	FROM LOS_QUERY.escuderia
+	WHERE escuderia_nombre IS NOT NULL
+  END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_sector')
+	DROP PROCEDURE sp_bi_dim_sector
+GO
+
+CREATE PROCEDURE sp_bi_dim_sector
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.BI_dim_sector (codigo_sector, sector_distancia, sector_tipo, sector_circuito_codigo, sector_circuito_nombre)
+	SELECT DISTINCT escuderia_nombre, escuderia_pais
+	FROM LOS_QUERY.escuderia
+	WHERE escuderia_nombre IS NOT NULL
+  END
+GO
+
+CREATE TABLE LOS_QUERY.BI_dim_sector (
+codigo_sector int PRIMARY KEY,
+sector_distancia decimal not null,
+sector_tipo varchar(255),
+sector_circuito_codigo int,
+sector_circuito_nombre varchar(255) null,
+FOREIGN KEY (sector_circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
+)
+
 
 /*
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_escuderia')
-DROP TABLE LOS_QUERY.BI_dim_escuderia
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tiempos')
-DROP TABLE LOS_QUERY.BI_dim_tiempos
-*/
-
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_desgaste_neumatico')
 	DROP PROCEDURE sp_migrar_fact_desgaste_neumatico
 GO
-/*
+
 CREATE PROCEDURE sp_migrar_fact_desgaste_neumatico
  AS
   BEGIN
@@ -398,9 +433,8 @@ CREATE PROCEDURE sp_migrar_fact_desgaste_neumatico
 	WHERE mpn.tele_neumatico_nro_serie IS NOT NULL and t.tele_numero_vuelta IS NOT NULL and c.CARRERA_CIRCUITO_CODIGO IS NOT NULL
 	group by mpn.tele_neumatico_nro_serie, t.tele_numero_vuelta, 2, c.CARRERA_CIRCUITO_CODIGO
   END
-GO*/
+GO
 
-/*
 DROP_TABLE.BI_migrar_tiempos_compras_pc
 AS
 BEGIN
@@ -428,8 +462,7 @@ BEGIN
 	CLOSE date_cursor
 	DEALLOCATE date_cursor
 END
-*/
-/*
+
 CREATE PROCEDURE sp_migrar_fact_desgaste_neumatico
 AS
 BEGIN
@@ -485,26 +518,16 @@ CREATE PROCEDURE sp_migrar_fact_parada_box
   END
 GO
 
----------------------------------------------------
--- ELIMINACION DE VISTAS EN CASO DE QUE EXISTAN --
----------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- CREACION DE VISTAS --
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- ITEM 5
+-- "Tiempo promedio que tardo cada escuderia en las paradas por cuatrimestre"
 
---Item 5
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_tiempo_promedio_por_escuderia')
 	DROP VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia
 GO
 
---Item 6
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_cant_paradas_x_circuito_x_escuderia_x_anio')
-	DROP VIEW LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
-GO
-
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
--- CREACION DE VISTAS --
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
--- ITEM 5
--- "Tiempo promedio que tardo cada escuderia en las paradas por cuatrimestre"
 CREATE VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia AS
 	SELECT
 		e.escuderia_nombre AS 'Escuderia',
@@ -518,6 +541,11 @@ GO
 
 --ITEM 6
 -- "Cantidad de paradas por circuito por escudería por año"
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_cant_paradas_x_circuito_x_escuderia_x_anio')
+	DROP VIEW LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
+GO
+
 CREATE VIEW LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio AS
 	SELECT
 		c.CIRCUITO_NOMBRE AS 'Circuito',
