@@ -74,17 +74,17 @@ anio int,
 cuatrimestre int not null
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_caja (--
+CREATE TABLE LOS_QUERY.BI_dim_caja (
 caja_nro_serie VARCHAR(255) PRIMARY KEY,
 caja_modelo VARCHAR(255)
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_escuderia (--
+CREATE TABLE LOS_QUERY.BI_dim_escuderia (
 escuderia_nombre VARCHAR(255) PRIMARY KEY,
 escuderia_pais VARCHAR(255)	
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_circuito (--
+CREATE TABLE LOS_QUERY.BI_dim_circuito (
 CIRCUITO_CODIGO int PRIMARY KEY,
 CIRCUITO_NOMBRE varchar(255),
 CIRCUITO_PAIS_CODIGO varchar(255)
@@ -95,7 +95,6 @@ codigo_sector int PRIMARY KEY,
 sector_distancia decimal not null,
 sector_tipo varchar(255),
 sector_circuito_codigo int,
-sector_circuito_nombre varchar(255) null,
 FOREIGN KEY (sector_circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
 )
 
@@ -132,7 +131,7 @@ FOREIGN KEY (piloto_auto_numero, piloto_auto_modelo)
 REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo)
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_neumatico (--
+CREATE TABLE LOS_QUERY.BI_dim_neumatico (
 neumatico_nro_serie VARCHAR(255) PRIMARY KEY,
 neumatico_posicion VARCHAR(255),
 neumatico_tipo VARCHAR(255)
@@ -140,13 +139,13 @@ neumatico_tipo VARCHAR(255)
 
 --tablas que considero que faltaron en las dimensiones
 
-CREATE TABLE LOS_QUERY.BI_dim_freno (--
+CREATE TABLE LOS_QUERY.BI_dim_freno (
 FRENO_NRO_SERIE varchar(255) PRIMARY KEY,
 FRENO_POSICION varchar(255) not null,
 desgaste decimal(18,6)
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_motor (--
+CREATE TABLE LOS_QUERY.BI_dim_motor (
 motor_nro_serie VARCHAR(255) not null PRIMARY KEY,
 motor_modelo VARCHAR(255) not null
 )
@@ -399,22 +398,56 @@ GO
 CREATE PROCEDURE sp_bi_dim_sector
  AS
   BEGIN
-    INSERT INTO LOS_QUERY.BI_dim_sector (codigo_sector, sector_distancia, sector_tipo, sector_circuito_codigo, sector_circuito_nombre)
-	SELECT DISTINCT escuderia_nombre, escuderia_pais
-	FROM LOS_QUERY.escuderia
-	WHERE escuderia_nombre IS NOT NULL
+    INSERT INTO LOS_QUERY.BI_dim_sector (codigo_sector, sector_distancia, sector_tipo, sector_circuito_codigo)
+	SELECT DISTINCT CODIGO_SECTOR, SECTOR_DISTANCIA, SECTOR_TIPO, SECTOR_CIRCUITO_CODIGO
+	FROM LOS_QUERY.sector
+	WHERE CODIGO_SECTOR IS NOT NULL
   END
 GO
 
-CREATE TABLE LOS_QUERY.BI_dim_sector (
-codigo_sector int PRIMARY KEY,
-sector_distancia decimal not null,
-sector_tipo varchar(255),
-sector_circuito_codigo int,
-sector_circuito_nombre varchar(255) null,
-FOREIGN KEY (sector_circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
-)
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_incidente')
+	DROP PROCEDURE sp_bi_dim_incidente
+GO
 
+CREATE PROCEDURE sp_bi_dim_incidente
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.bi_dim_incidente (incidente_codigo, incidente_bandera, incidente_numero_vuelta, incidente_tipo, incidente_codigo_sector)
+	SELECT DISTINCT INCIDENTE_CODIGO, INCIDENTE_BANDERA, INCIDENTE_NUMERO_VUELTA, INCIDENTE_TIPO, INCIDENTE_CODIGO_SECTOR
+	FROM LOS_QUERY.incidente
+	WHERE INCIDENTE_CODIGO IS NOT NULL
+  END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_auto')
+	DROP PROCEDURE sp_bi_dim_auto
+GO
+
+CREATE PROCEDURE sp_bi_dim_auto
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.BI_dim_auto (auto_numero, auto_modelo, escuderia)
+	SELECT DISTINCT auto_numero, auto_modelo, escuderia
+	FROM LOS_QUERY.auto
+	WHERE auto_numero IS NOT NULL
+  END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_piloto')
+	DROP PROCEDURE sp_bi_dim_piloto
+GO
+
+CREATE PROCEDURE sp_bi_dim_piloto
+ AS
+  BEGIN
+    INSERT INTO LOS_QUERY.BI_dim_piloto (piloto_nombre, piloto_apellido, piloto_auto_numero, piloto_auto_modelo, piloto_nacionalidad, piloto_fecha_nacimiento)
+	SELECT DISTINCT piloto_nombre, piloto_apellido, piloto_auto_numero, piloto_auto_modelo, piloto_nacionalidad, piloto_fecha_nacimiento
+	FROM LOS_QUERY.piloto
+	WHERE piloto_nombre IS NOT NULL AND piloto_apellido IS NOT NULL
+  END
+GO
+
+)
 
 /*
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_desgaste_neumatico')
