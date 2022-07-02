@@ -26,27 +26,47 @@ DROP TABLE LOS_QUERY.BI_dim_neumatico
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_piloto')
 DROP TABLE LOS_QUERY.BI_dim_piloto
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_incidente')
+DROP TABLE LOS_QUERY.BI_dim_incidente
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_circuito')
+DROP TABLE LOS_QUERY.BI_dim_circuito
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tiempos')
+DROP TABLE LOS_QUERY.BI_dim_tiempos
+-----------
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_consumo_por_circuito')
+DROP TABLE LOS_QUERY.BI_consumo_por_circuito
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_desgaste_caja')
+DROP TABLE LOS_QUERY.BI_desgaste_caja
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_parada_box')
+DROP TABLE LOS_QUERY.BI_fact_parada_box
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_incidentes_por_escuderia')
+DROP TABLE LOS_QUERY.BI_incidentes_por_escuderia
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_parada_auto')
+DROP TABLE LOS_QUERY.BI_tiempo_parada_auto
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_vuelta_escuderia')
+DROP TABLE LOS_QUERY.BI_tiempo_vuelta_escuderia
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_velocidades_auto')
+DROP TABLE LOS_QUERY.BI_velocidades_auto
+
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_auto')
 DROP TABLE LOS_QUERY.BI_dim_auto
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_caja')
 DROP TABLE LOS_QUERY.BI_dim_caja
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_incidente')
-DROP TABLE LOS_QUERY.BI_dim_incidente
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_sector')
-DROP TABLE LOS_QUERY.BI_dim_sector
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_circuito')
-DROP TABLE LOS_QUERY.BI_dim_circuito
-
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_escuderia')
 DROP TABLE LOS_QUERY.BI_dim_escuderia
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tiempos')
-DROP TABLE LOS_QUERY.BI_dim_tiempos
-
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_sector')
+DROP TABLE LOS_QUERY.BI_dim_sector
 
 CREATE TABLE LOS_QUERY.BI_dim_tiempos (
 codigo_tiempo int IDENTITY PRIMARY KEY,
@@ -246,12 +266,12 @@ FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_n
 FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector)
 );
 
---Gas
+--Vista 5 y 6
 CREATE TABLE LOS_QUERY.BI_fact_parada_box (
     codigo_tiempo int,
 	circuito_codigo int,
 	escuderia_nombre varchar(255),
-	tiempo_parada decimal(18,2),
+	duracion_parada decimal(18,2),
 	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo),
 	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre)
@@ -268,6 +288,7 @@ IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_cuatrimestre')
 -- FUNCIONES
 ---------------------------------------------------
 
+--Podria hacerse con un switch case pero solo esta disponible en versiones de sqlserver mas recientes
 CREATE FUNCTION LOS_QUERY.get_cuatrimestre(@fecha DATE)
 	RETURNS INT
 	AS
@@ -286,8 +307,6 @@ CREATE FUNCTION LOS_QUERY.get_cuatrimestre(@fecha DATE)
 		END
 			RETURN NULL
     END
-   
-GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de procedimientos --
@@ -455,7 +474,7 @@ GO
 CREATE PROCEDURE sp_migrar_fact_parada_box
  AS
   BEGIN
-    INSERT INTO LOS_QUERY.BI_fact_parada_box(codigo_tiempo, circuito_codigo, escuderia_nombre, tiempo_parada)
+    INSERT INTO LOS_QUERY.BI_fact_parada_box(codigo_tiempo, circuito_codigo, escuderia_nombre, duracion_parada)
 	SELECT tiempo.codigo_tiempo, carrera.CARRERA_CIRCUITO_CODIGO, auto.auto_escuderia, PARADA_DURACION
 	FROM LOS_QUERY.parada_box
 		JOIN LOS_QUERY.carrera ON parada_box.PARADA_CODIGO_CARRERA = carrera.CODIGO_CARRERA
@@ -467,7 +486,7 @@ CREATE PROCEDURE sp_migrar_fact_parada_box
 GO
 
 ---------------------------------------------------
--- ELIMINACION DE VISTAS EN CASO DE QUE EXISTAN
+-- ELIMINACION DE VISTAS EN CASO DE QUE EXISTAN --
 ---------------------------------------------------
 
 --Item 5
@@ -475,19 +494,49 @@ IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_tiempo_promedio_por_es
 	DROP VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia
 GO
 
+--Item 6
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_cant_paradas_x_circuito_x_escuderia_x_anio')
+	DROP VIEW LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
+GO
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
--- Item 5
+-- ITEM 5
 -- "Tiempo promedio que tardo cada escuderia en las paradas por cuatrimestre"
 CREATE VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia AS
 	SELECT
 		e.escuderia_nombre AS 'Escuderia',
 		t.cuatrimestre AS 'Cuatrimestre',
-		AVG(p_box.tiempo_parada) AS 'Tiempo promedio tardado en paradas'
+		AVG(p_box.duracion_parada) AS 'Tiempo promedio tardado en paradas'
 	FROM LOS_QUERY.BI_fact_parada_box p_box
 		JOIN LOS_QUERY.BI_dim_escuderia e ON e.escuderia_nombre = p_box.escuderia_nombre
-		JOIN LOS_QUERY.BI_dim_tiempos t ON t.codigo_tiempo = p_box.codigo_tiempo
+		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    = p_box.codigo_tiempo
 	GROUP BY e.escuderia_nombre, t.cuatrimestre
 GO
+
+--ITEM 6
+-- "Cantidad de paradas por circuito por escudería por año"
+CREATE VIEW LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio AS
+	SELECT
+		c.CIRCUITO_NOMBRE AS 'Circuito',
+		e.escuderia_nombre AS 'Escuderia',
+		t.anio AS 'Año',
+		count(*) AS 'Cantidad de Paradas'
+	FROM LOS_QUERY.BI_fact_parada_box p_box
+		JOIN LOS_QUERY.BI_dim_circuito c  ON c.CIRCUITO_CODIGO  = p_box.circuito_codigo
+		JOIN LOS_QUERY.BI_dim_escuderia e ON e.escuderia_nombre = p_box.escuderia_nombre
+		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    = p_box.codigo_tiempo
+	GROUP BY c.CIRCUITO_NOMBRE , e.escuderia_nombre, t.anio
+GO
+
+---------------------------------------------------
+-- SELECT DE LAS VISTAS --
+---------------------------------------------------
+
+--Item 5
+SELECT * FROM LOS_QUERY.BI_tiempo_promedio_por_escuderia
+
+--Item 6
+SELECT * FROM LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
