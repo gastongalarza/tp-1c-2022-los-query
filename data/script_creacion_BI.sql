@@ -154,10 +154,6 @@ motor_modelo VARCHAR(255) not null
 -- Creacion de tablas facilitadoras para el armado de las vistas --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 /*
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tiempos')
-DROP TABLE LOS_QUERY.BI_dim_tiempos
-*/
-/*
 al hacer el procedure para cargar esta tabla, podemos ya ir obteniendo los datos levemente procesados para que en
 la vista solo tengamos que hacer el promedio del desgaste agrupando por circuito. Estariamos partiendo el problema
 en dos partes
@@ -284,6 +280,7 @@ IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_cuatrimestre')
 	DROP FUNCTION LOS_QUERY.get_cuatrimestre
 
 --Podria hacerse con un switch case pero solo esta disponible en versiones de sqlserver mas recientes
+GO
 CREATE FUNCTION LOS_QUERY.get_cuatrimestre(@fecha DATE)
 	RETURNS INT
 	AS
@@ -302,6 +299,19 @@ CREATE FUNCTION LOS_QUERY.get_cuatrimestre(@fecha DATE)
 		END
 			RETURN NULL
 	END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'calculo_desgaste')
+	DROP FUNCTION LOS_QUERY.calculo_desgaste
+
+GO
+CREATE FUNCTION LOS_QUERY.calculo_desgaste(@inicial decimal(18,6), @final decimal(18,6))
+	RETURNS decimal(18,6)
+	AS
+	BEGIN
+		RETURN @inicial - @final
+	END
+GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de procedimientos --
@@ -447,55 +457,10 @@ CREATE PROCEDURE sp_bi_dim_piloto
   END
 GO
 
-)
-
-/*
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_desgaste_neumatico')
 	DROP PROCEDURE sp_migrar_fact_desgaste_neumatico
+
 GO
-
-CREATE PROCEDURE sp_migrar_fact_desgaste_neumatico
- AS
-  BEGIN
-    INSERT INTO LOS_QUERY.BI_desgaste_neumatico (neumatico_nro_serie, numero_vuelta,
-		desgaste, circuito_codigo)
-	SELECT DISTINCT mpn.tele_neumatico_nro_serie, t.tele_numero_vuelta, 2, c.CARRERA_CIRCUITO_CODIGO
-	FROM LOS_QUERY.medicion_por_neumatico mpn
-	JOIN LOS_QUERY.telemetria_auto t on mpn.tele_auto_codigo = t.tele_auto_codigo
-	JOIN LOS_QUERY.carrera c on c.CODIGO_CARRERA = t.tele_codigo_carrera
-	WHERE mpn.tele_neumatico_nro_serie IS NOT NULL and t.tele_numero_vuelta IS NOT NULL and c.CARRERA_CIRCUITO_CODIGO IS NOT NULL
-	group by mpn.tele_neumatico_nro_serie, t.tele_numero_vuelta, 2, c.CARRERA_CIRCUITO_CODIGO
-  END
-GO
-
-DROP_TABLE.BI_migrar_tiempos_compras_pc
-AS
-BEGIN
-	DECLARE date_cursor CURSOR FOR SELECT FECHA FROM DROP_TABLE.compras_pc
-	
-	DECLARE @Date datetime2(3)
-	DECLARE @Año_c int
-	DECLARE @Mes_c int
-	
-
-	OPEN date_cursor
-	FETCH date_cursor into @Date
-
-	WHILE(@@FETCH_STATUS = 0)
-		BEGIN
-			SET @Año_c = YEAR(@Date)
-			SET @Mes_c = MONTH(@Date)
-			
-
-			IF NOT EXISTS (SELECT 1 FROM DROP_TABLE.BI_dim_tiempos WHERE (AÑO = @Año_c AND MES = @Mes_c))
-			INSERT INTO DROP_TABLE.BI_dim_tiempos (AÑO,MES) VALUES (@Año_c, @Mes_c)
-			
-			FETCH date_cursor into @Date
-		END
-	CLOSE date_cursor
-	DEALLOCATE date_cursor
-END
-
 CREATE PROCEDURE sp_migrar_fact_desgaste_neumatico
 AS
 BEGIN
@@ -531,7 +496,7 @@ BEGIN
 	CLOSE date_cursor
 	DEALLOCATE date_cursor
 END
-*/
+GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_parada_box')
 	DROP PROCEDURE sp_migrar_fact_parada_box
