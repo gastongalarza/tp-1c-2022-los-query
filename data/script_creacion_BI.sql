@@ -516,9 +516,30 @@ CREATE PROCEDURE sp_migrar_fact_parada_box
   END
 GO
 
+CREATE PROCEDURE sp_migrar_consumo_por_circuito
+AS
+	BEGIN
+		INSERT INTO LOS_QUERY.BI_consumo_por_circuito(ciruito_codigo, consumo_combustible)
+		SELECT cir.CIRCUITO_CODIGO, SUM(t.tele_auto_combustible)
+		FROM LOS_QUERY.telemetria_auto t 
+			JOIN LOS_QUERY.carrera car ON t.tele_codigo_carrera = car.CODIGO_CARRERA
+			JOIN LOS_QUERY.circuito cir ON CIRCUITO_CODIGO = car.CARRERA_CIRCUITO_CODIGO
+		group by cir.CIRCUITO_CODIGO, cir.CIRCUITO_NOMBRE
+	END
+GO
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--ITEM 3
+-- "Los 3 de circuitos con mayor consumo de combustible promedio"
+CREATE VIEW LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible AS
+	SELECT 
+		TOP 3 c.ciruito_codigo 
+	FROM LOS_QUERY.BI_consumo_por_circuito as c
+	order by AVG(c.consumo_combustible)
+GO
+
 -- ITEM 5
 -- "Tiempo promedio que tardo cada escuderia en las paradas por cuatrimestre"
 
