@@ -261,7 +261,6 @@ CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
 	escuderia_nombre VARCHAR(255),
 	codigo_sector int,
 	anio int, --podria ser una fecha (se obtiene de la fecha de la carrera en la que fue ese incidente)
-	cant_incidentes int,
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
 	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector)
 );
@@ -580,41 +579,31 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_incidentes
 	DROP PROCEDURE sp_migrar_incidentes_por_escuderia
 GO
 
---me falta verificar si estan todos los joins bien, pero en principio son estos
+--no se porque no carga los datos a la tabla
 CREATE PROCEDURE sp_migrar_incidentes_por_escuderia
  AS
   BEGIN
-	INSERT INTO LOS_QUERY.BI_incidentes_por_escuderia(escuderia_nombre, codigo_sector, anio, cant_incidentes)
-	SELECT e.escuderia_nombre, 
-		i.INCIDENTE_CODIGO_SECTOR, 
-		YEAR(c.CARRERA_FECHA), 
-		count(i.INCIDENTE_CODIGO)
+	INSERT INTO LOS_QUERY.BI_incidentes_por_escuderia(escuderia_nombre, codigo_sector, anio)
+	SELECT 
+	  a.auto_escuderia, 
+	  i.INCIDENTE_CODIGO_SECTOR, 
+	  YEAR(c.CARRERA_FECHA) as anio
 	FROM LOS_QUERY.auto_por_incidente api 
-		JOIN LOS_QUERY.auto a ON a.auto_numero = api.auto_incidente_numero and a.auto_modelo = api.auto_incidente_modelo
-		JOIN LOS_QUERY.ESCUDERIA e ON a.auto_escuderia = e.escuderia_nombre
-		JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
-		JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA
-	GROUP BY e.escuderia_nombre, i.INCIDENTE_CODIGO_SECTOR, YEAR(c.CARRERA_FECHA)
+			JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
+			JOIN LOS_QUERY.auto a ON  api.auto_incidente_numero = a.auto_numero and api.auto_incidente_modelo =  a.auto_modelo
+			JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA
+	GROUP BY a.auto_escuderia, i.INCIDENTE_CODIGO_SECTOR, YEAR(c.CARRERA_FECHA)
+	ORDER BY 1,3
   END
 GO
 
-
---SELECT E.CODIGO_ESCUDERIA, S.CODIGO_SECTOR, YEAR(CAR.CARRERA_FECHA) ANIO, count(I.CODIGO_INCIDENTE) 
---FROM [COSMICOS].[ESCUDERIA] E																									
---JOIN [COSMICOS].[AUTO] A ON E.CODIGO_ESCUDERIA = A.CODIGO_ESCUDERIA																 
---JOIN [COSMICOS].[AUTO_POR_INCIDENTE] AI ON A.CODIGO_AUTO = AI.CODIGO_AUTO_POR_CARRERA
---JOIN [COSMICOS].[INCIDENTE] I ON I.CODIGO_INCIDENTE = AI.CODIGO_INCIDENTE
---JOIN [COSMICOS].[CARRERA] CAR ON I.CODIGO_CARRERA = CAR.CODIGO_CARRERA
---JOIN [COSMICOS].[SECTOR] S ON I.CODIGO_SECTOR = S.CODIGO_SECTOR
---GROUP BY E.CODIGO_ESCUDERIA, S.CODIGO_SECTOR, YEAR(CARRERA_FECHA)
---order by 1, 2, 3 desc
---GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- ITEM 1
--- "Desgaste promedio de cada componente de cada auto por vuelta por circuito"
+-- "Desgaste promedio de cada componente de cada auto por vuelta por circuito"
+
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_desgaste_promedio_neumatico_x_auto_x_vuelta_x_circuito')
 	DROP VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia
 GO
@@ -679,9 +668,10 @@ IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_circuitos_con_mayor_co
 GO
 
 CREATE VIEW LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible AS
-	SELECT TOP 3 c.ciruito_codigo 
+	SELECT 
+		TOP 3 c.ciruito_codigo, c.consumo_combustible AS promedio
 	FROM LOS_QUERY.BI_consumo_por_circuito AS c
-	order by AVG(c.consumo_combustible)
+	order by c.consumo_combustible
 GO
 
 -- ITEM 5
@@ -746,15 +736,15 @@ IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_prom_incidentes_escude
 	DROP VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_sector
 GO
 
---falta revisar este select
+--falta revisar este select, pero no lo puedo probar porque no me reconoce ni la tabla dim sector ni la de inc por escuderia
 CREATE VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_sector AS
 	SELECT 
-		ipe.escuderia_nombre, 
-		ipe.codigo_sector, 
-		ipe.anio, 
-		(SUM(ipe.cant_incidentes) / COUNT(ipe.codigo_sector)) AS PROMEDIO
-	FROM LOS_QUERY.BI_incidentes_por_escuderia ipe
-	GROUP BY ipe.escuderia_nombre , ipe.codigo_sector, ipe.anio
+	  ipe.escuderia_nombre,
+	  ipe.anio,
+	  s.codigo_sector, --todos los sectores que existan
+	  AVG(ISNULL(ipe.codigo_sector, 0)) AS Promedio -- en los sectores en los que hubo incidentes, hubo solo 1. En los que no hubieron inc supongo que quedaran en null, y el prom deberia dar 0
+	FROM LOS_QUERY.BI_dim_sector s LEFT JOIN LOS_QUERY.BI_incidentes_por_escuderia ipe ON s.codigo_sector = ipe.codigo_sector
+	GROUP BY ipe.escuderia_nombre, s.codigo_sector, ipe.anio
 GO
 
 ---------------------------------------------------
