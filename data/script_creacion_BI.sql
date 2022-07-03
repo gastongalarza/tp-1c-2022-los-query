@@ -257,6 +257,7 @@ CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
 escuderia_nombre VARCHAR(255),
 codigo_sector int,
 anio int, --podria ser una fecha (se obtiene de la fecha de la carrera en la que fue ese incidente)
+cant_incidentes int,
 FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
 FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector)
 );
@@ -437,7 +438,7 @@ CREATE PROCEDURE sp_bi_dim_auto
  AS
   BEGIN
     INSERT INTO LOS_QUERY.BI_dim_auto (auto_numero, auto_modelo, escuderia)
-	SELECT DISTINCT auto_numero, auto_modelo, escuderia
+	SELECT DISTINCT auto_numero, auto_modelo, auto_escuderia
 	FROM LOS_QUERY.auto
 	WHERE auto_numero IS NOT NULL
   END
@@ -516,6 +517,10 @@ CREATE PROCEDURE sp_migrar_fact_parada_box
   END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_consumo_por_circuito')
+	DROP PROCEDURE sp_migrar_consumo_por_circuito
+GO
+
 CREATE PROCEDURE sp_migrar_consumo_por_circuito
 AS
 	BEGIN
@@ -528,15 +533,51 @@ AS
 	END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_incidentes_por_escuderia')
+	DROP PROCEDURE sp_migrar_incidentes_por_escuderia
+GO
+
+--me falta verificar si estan todos los joins bien, pero en principio son estos
+CREATE PROCEDURE sp_migrar_incidentes_por_escuderia
+AS
+	BEGIN
+		INSERT INTO LOS_QUERY.BI_incidentes_por_escuderia(escuderia_nombre, codigo_sector, anio, cant_incidentes)
+		SELECT e.escuderia_nombre, i.INCIDENTE_CODIGO_SECTOR, YEAR(c.CARRERA_FECHA), count(i.INCIDENTE_CODIGO)
+		FROM LOS_QUERY.auto_por_incidente api 
+			JOIN LOS_QUERY.auto a ON a.auto_numero = api.auto_incidente_numero and a.auto_modelo = api.auto_incidente_modelo
+			JOIN LOS_QUERY.ESCUDERIA e ON a.auto_escuderia = e.escuderia_nombre
+			JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
+			JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA
+		GROUP BY e.escuderia_nombre, i.INCIDENTE_CODIGO_SECTOR, YEAR(c.CARRERA_FECHA)
+	END
+GO
+
+
+--SELECT E.CODIGO_ESCUDERIA, S.CODIGO_SECTOR, YEAR(CAR.CARRERA_FECHA) ANIO, count(I.CODIGO_INCIDENTE) 
+--FROM [COSMICOS].[ESCUDERIA] E																									
+--JOIN [COSMICOS].[AUTO] A ON E.CODIGO_ESCUDERIA = A.CODIGO_ESCUDERIA																 
+--JOIN [COSMICOS].[AUTO_POR_INCIDENTE] AI ON A.CODIGO_AUTO = AI.CODIGO_AUTO_POR_CARRERA
+--JOIN [COSMICOS].[INCIDENTE] I ON I.CODIGO_INCIDENTE = AI.CODIGO_INCIDENTE
+--JOIN [COSMICOS].[CARRERA] CAR ON I.CODIGO_CARRERA = CAR.CODIGO_CARRERA
+--JOIN [COSMICOS].[SECTOR] S ON I.CODIGO_SECTOR = S.CODIGO_SECTOR
+--GROUP BY E.CODIGO_ESCUDERIA, S.CODIGO_SECTOR, YEAR(CARRERA_FECHA)
+--order by 1, 2, 3 desc
+--GO
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 --ITEM 3
 -- "Los 3 de circuitos con mayor consumo de combustible promedio"
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_circuitos_con_mayor_consumo_combustible')
+	DROP VIEW LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible
+GO
+
 CREATE VIEW LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible AS
 	SELECT 
 		TOP 3 c.ciruito_codigo 
-	FROM LOS_QUERY.BI_consumo_por_circuito as c
+	FROM LOS_QUERY.BI_consumo_por_circuito AS c
 	order by AVG(c.consumo_combustible)
 GO
 
@@ -578,12 +619,53 @@ CREATE VIEW LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio AS
 	GROUP BY c.CIRCUITO_NOMBRE , e.escuderia_nombre, t.anio
 GO
 
+
+--ITEM 7
+--"Los 3 circuitos donde se consume mayor cantidad en tiempo de paradas en boxes."
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_circuitos_mayor_tiempo_en_paradas_box')
+	DROP VIEW LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box
+GO
+
+CREATE VIEW LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box AS
+	SELECT
+		TOP 3 c.CARRERA_CIRCUITO_CODIGO AS 'Circuito', 
+		SUM(p.PARADA_DURACION) AS 'Tiempo en Parada Box'
+	FROM LOS_QUERY.parada_box p 
+		JOIN LOS_QUERY.carrera c ON c.CODIGO_CARRERA = p.PARADA_CODIGO_CARRERA
+		group by c.CARRERA_CIRCUITO_CODIGO  
+		order by sum(p.PARADA_DURACION) desc
+GO
+
+--ITEM 9
+--"Promedio de incidentes que presenta cada escudería por año en los distintos tipo de sectores."
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_prom_incidentes_escuderia_x_anio_x_sector')
+	DROP VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_sector
+GO
+
+--falta revisar este select
+CREATE VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_sector AS
+SELECT 
+	ipe.escuderia_nombre, ipe.codigo_sector, ipe.anio, (SUM(ipe.cant_incidentes)/ COUNT(ipe.codigo_sector)) AS PROMEDIO
+	FROM LOS_QUERY.BI_incidentes_por_escuderia ipe
+	GROUP BY ipe.escuderia_nombre , ipe.codigo_sector, ipe.anio
+GO
+
 ---------------------------------------------------
 -- SELECT DE LAS VISTAS --
 ---------------------------------------------------
+
+--Item 3
+SELECT * FROM LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible
 
 --Item 5
 SELECT * FROM LOS_QUERY.BI_tiempo_promedio_por_escuderia
 
 --Item 6
 SELECT * FROM LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
+
+--Item 7
+SELECT * FROM LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box
+
+--Item 9
+SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_sector
