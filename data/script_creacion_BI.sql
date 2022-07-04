@@ -67,6 +67,9 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_escuderia')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_sector')
 	DROP TABLE LOS_QUERY.BI_dim_sector
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_paradas_circuito')
+	DROP TABLE LOS_QUERY.BI_tiempo_paradas_circuito
+
 CREATE TABLE LOS_QUERY.BI_dim_tiempos (
 	codigo_tiempo int IDENTITY PRIMARY KEY,
 	anio int,
@@ -255,12 +258,21 @@ CREATE TABLE LOS_QUERY.BI_tiempo_parada_auto (
 	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
 );
 
+--creo esta para el item 7 porque no entendi como funciona lo de la tabla de arriba con cuatrimestres
+CREATE TABLE LOS_QUERY.BI_tiempo_paradas_circuito (
+	circuito_codigo int,
+	tiempo_parada_box decimal
+	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
+);
+
 --apartir de esta tabla habria que hacer el promedio por sector para cada escuderia (entiendo que quieren saber cant de incidentes por año)
 CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
 	--le pondria un id como clave primaria
 	escuderia_nombre VARCHAR(255),
 	codigo_sector int,
 	anio int, --podria ser una fecha (se obtiene de la fecha de la carrera en la que fue ese incidente)
+	cant_inc int,
+	tipo_sector varchar(255),
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
 	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector)
 );
@@ -567,7 +579,7 @@ CREATE PROCEDURE sp_migrar_consumo_por_circuito
  AS
   BEGIN
 	INSERT INTO LOS_QUERY.BI_consumo_por_circuito(ciruito_codigo, consumo_combustible)
-	SELECT cir.CIRCUITO_CODIGO, SUM(t.tele_auto_combustible)
+	SELECT cir.CIRCUITO_CODIGO, AVG(t.tele_auto_combustible)
 	FROM LOS_QUERY.telemetria_auto t 
 		JOIN LOS_QUERY.carrera car ON t.tele_codigo_carrera = car.CODIGO_CARRERA
 		JOIN LOS_QUERY.circuito cir ON CIRCUITO_CODIGO = car.CARRERA_CIRCUITO_CODIGO
@@ -575,25 +587,45 @@ CREATE PROCEDURE sp_migrar_consumo_por_circuito
   END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_tiempo_paradas_circuito')
+	DROP PROCEDURE sp_migrar_tiempo_paradas_circuito
+GO
+
+CREATE PROCEDURE sp_tiempo_paradas_circuito
+  AS
+    BEGIN
+	  INSERT INTO LOS_QUERY.BI_tiempo_paradas_circuito(circuito_codigo, tiempo_parada_box)
+		SELECT
+			c.CARRERA_CIRCUITO_CODIGO, 
+			SUM(p.PARADA_DURACION)
+		FROM LOS_QUERY.parada_box p 
+			JOIN LOS_QUERY.carrera c ON c.CODIGO_CARRERA = p.PARADA_CODIGO_CARRERA
+		GROUP BY c.CARRERA_CIRCUITO_CODIGO  
+	END
+GO
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_incidentes_por_escuderia')
 	DROP PROCEDURE sp_migrar_incidentes_por_escuderia
 GO
 
---no se porque no carga los datos a la tabla
+
 CREATE PROCEDURE sp_migrar_incidentes_por_escuderia
  AS
   BEGIN
-	INSERT INTO LOS_QUERY.BI_incidentes_por_escuderia(escuderia_nombre, codigo_sector, anio)
-	SELECT 
-	  a.auto_escuderia, 
-	  i.INCIDENTE_CODIGO_SECTOR, 
-	  YEAR(c.CARRERA_FECHA) as anio
-	FROM LOS_QUERY.auto_por_incidente api 
+	INSERT INTO LOS_QUERY.BI_incidentes_por_escuderia(escuderia_nombre, codigo_sector, anio, cant_inc, tipo_sector)
+		SELECT
+			a.auto_escuderia as Escuderia, 
+			i.INCIDENTE_CODIGO_SECTOR as Sector_Incidente, 
+			YEAR(c.CARRERA_FECHA) as Anio_Incidente,
+			COUNT(i.INCIDENTE_CODIGO) as Cant_Inc, --cuenta cuantos incidentes hubo en ese tipo de sector
+			s.SECTOR_TIPO as Tipo_Sector
+		FROM LOS_QUERY.auto_por_incidente api 
 			JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
 			JOIN LOS_QUERY.auto a ON  api.auto_incidente_numero = a.auto_numero and api.auto_incidente_modelo =  a.auto_modelo
 			JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA
-	GROUP BY a.auto_escuderia, i.INCIDENTE_CODIGO_SECTOR, YEAR(c.CARRERA_FECHA)
-	ORDER BY 1,3
+			JOIN LOS_QUERY.sector s ON i.INCIDENTE_CODIGO_SECTOR = s.CODIGO_SECTOR
+		GROUP BY a.auto_escuderia, i.INCIDENTE_CODIGO_SECTOR, s.SECTOR_TIPO, YEAR(c.CARRERA_FECHA)
+		ORDER BY 1,3
   END
 GO
 
@@ -722,29 +754,27 @@ GO
 
 CREATE VIEW LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box AS
 	SELECT
-		TOP 3 c.CARRERA_CIRCUITO_CODIGO AS 'Circuito', 
-		SUM(p.PARADA_DURACION) AS 'Tiempo en Parada Box'
-	FROM LOS_QUERY.parada_box p 
-		JOIN LOS_QUERY.carrera c ON c.CODIGO_CARRERA = p.PARADA_CODIGO_CARRERA
-	GROUP BY c.CARRERA_CIRCUITO_CODIGO  
-	ORDER BY sum(p.PARADA_DURACION) desc
+		TOP 3 c.circuito_codigo AS 'Circuito',
+		c.tiempo_parada_box as 'Tiempo en Parada Box'
+	FROM LOS_QUERY.BI_tiempo_paradas_circuito c
+	ORDER BY 2 DESC
 GO
 
 --ITEM 9
 --"Promedio de incidentes que presenta cada escudería por año en los distintos tipo de sectores."
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_prom_incidentes_escuderia_x_anio_x_sector')
-	DROP VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_sector
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_prom_incidentes_escuderia_x_anio_x_tipo_sector')
+	DROP VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector
 GO
 
---falta revisar este select, pero no lo puedo probar porque no me reconoce ni la tabla dim sector ni la de inc por escuderia
-CREATE VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_sector AS
+CREATE VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector AS
 	SELECT 
-	  ipe.escuderia_nombre,
-	  ipe.anio,
-	  s.codigo_sector, --todos los sectores que existan
-	  AVG(ISNULL(ipe.codigo_sector, 0)) AS Promedio -- en los sectores en los que hubo incidentes, hubo solo 1. En los que no hubieron inc supongo que quedaran en null, y el prom deberia dar 0
-	FROM LOS_QUERY.BI_dim_sector s LEFT JOIN LOS_QUERY.BI_incidentes_por_escuderia ipe ON s.codigo_sector = ipe.codigo_sector
-	GROUP BY ipe.escuderia_nombre, s.codigo_sector, ipe.anio
+	  ixe.escuderia_nombre as 'Escuderia',
+	  ixe.anio as 'Anio_Incidente',
+	  s.sector_tipo as 'Tipo_Sector', 
+	  AVG(ixe.cant_inc) as 'Promedio'
+	FROM LOS_QUERY.BI_dim_sector s 
+		JOIN LOS_QUERY.BI_incidentes_por_escuderia ixe ON s.codigo_sector = ixe.codigo_sector
+	GROUP BY ixe.escuderia_nombre, s.SECTOR_TIPO, ixe.anio
 GO
 
 ---------------------------------------------------
@@ -769,4 +799,4 @@ SELECT * FROM LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
 SELECT * FROM LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box
 
 --Item 9
-SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_sector
+SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector
