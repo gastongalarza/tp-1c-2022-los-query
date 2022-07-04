@@ -232,6 +232,7 @@ CREATE TABLE LOS_QUERY.BI_velocidades_auto (
 	velocidad decimal(18,2), --se obtienen todas las velocidades haciendo un group_by de auto, circuito y sector de cada telemetria para obtener todas las velocidades
 	ciruito_codigo int,
 	codigo_sector int,
+	sector_tipo varchar(255),
 	PRIMARY KEY(auto_numero, auto_modelo, ciruito_codigo, codigo_sector),
 	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
 	FOREIGN KEY (ciruito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
@@ -629,7 +630,39 @@ CREATE PROCEDURE sp_migrar_incidentes_por_escuderia
   END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_dim_tiempos')
+	DROP PROCEDURE sp_migrar_dim_tiempos
+GO
 
+CREATE PROCEDURE sp_migrar_dim_tiempos AS
+    BEGIN
+        INSERT INTO LOS_QUERY.BI_dim_tiempos(anio, cuatrimestre)
+           SELECT distinct YEAR(c.CARRERA_FECHA), LOS_QUERY.get_cuatrimestre(CARRERA_FECHA) 
+		   FROM LOS_QUERY.carrera c
+    END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_velocidades_auto')
+	DROP PROCEDURE sp_migrar_velocidades_auto
+GO
+
+CREATE PROCEDURE sp_migrar_velocidades_auto
+  AS
+    BEGIN
+	  INSERT INTO LOS_QUERY.BI_velocidades_auto(auto_numero, auto_modelo, velocidad, ciruito_codigo, codigo_sector, sector_tipo)
+		SELECT
+			t.tele_auto_numero as auto_numero,
+			t.tele_auto_modelo as auto_modelo,
+			MAX(t.tele_auto_velocidad) as max_vel,
+			c.CIRCUITO_CODIGO as ciruito_codigo,
+			s.CODIGO_SECTOR, -- solo traigo el sector para poder matchear con la dim sector en la view, ni idea si essta bien
+			s.SECTOR_TIPO
+		FROM LOS_QUERY.telemetria_auto t
+		JOIN LOS_QUERY.sector s ON t.tele_codigo_sector = s.CODIGO_SECTOR
+		JOIN LOS_QUERY.circuito c ON s.SECTOR_CIRCUITO_CODIGO = c.CIRCUITO_CODIGO
+		GROUP BY t.tele_auto_numero, t.tele_auto_modelo, s.CODIGO_SECTOR, s.SECTOR_TIPO, c.CIRCUITO_CODIGO
+	END
+  GO
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -704,6 +737,25 @@ CREATE VIEW LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible AS
 		TOP 3 c.ciruito_codigo, c.consumo_combustible AS promedio
 	FROM LOS_QUERY.BI_consumo_por_circuito AS c
 	order by c.consumo_combustible
+GO
+
+-- ITEM 4 
+-- "Maxima velocidad alcanzada por cada auto en cada tipo de sector de cada circuito"
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_max_vel_x_auto_x_tipo_sector_x_circuito')
+	DROP VIEW LOS_QUERY.BI_max_vel_x_auto_x_tipo_sector_x_circuito
+GO
+
+CREATE VIEW LOS_QUERY.BI_max_vel_x_auto_x_tipo_sector_x_circuito AS
+	SELECT
+	v.auto_numero,
+	v.auto_modelo,
+	v.ciruito_codigo,
+	v.SECTOR_TIPO,
+	MAX(v.velocidad) as Max_Velocidad
+	FROM 	  
+		LOS_QUERY.BI_velocidades_auto as v
+	GROUP BY v.auto_numero, v.auto_modelo, v.ciruito_codigo, v.SECTOR_TIPO
 GO
 
 -- ITEM 5
@@ -788,6 +840,9 @@ SELECT * FROM LOS_QUERY.BI_desgaste_promedio_motor_x_auto_x_vuelta_x_circuito
 
 --Item 3
 SELECT * FROM LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible
+
+--Item 4
+SELECT * FROM LOS_QUERY.BI_max_vel_x_auto_x_tipo_sector_x_circuito
 
 --Item 5
 SELECT * FROM LOS_QUERY.BI_tiempo_promedio_por_escuderia
