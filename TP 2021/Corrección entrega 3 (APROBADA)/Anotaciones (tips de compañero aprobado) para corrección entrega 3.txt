@@ -1,0 +1,22 @@
+Ventas accesorio y ventas pc tienen que tener edad rango (y sexo poner "indefinido")
+Promedio de tiempo de stock
+
+En tiempos sacar el día X
+Sacar número de compra y de venta X
+
+volar dim clientes X
+
+En facts:
+Compras:
+Cantidad de compras X
+PrecioPromedio X
+
+
+
+Ventas:
+Cantidad de ventas X
+PrecioPromedio X
+PromedioTiempoEnStock
+EdadRango (va elrango en el que entra el promedio de edad de los clientes EN LAS VENTAS) X
+Sexo "indefinido" X
+
