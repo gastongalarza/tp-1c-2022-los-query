@@ -229,11 +229,13 @@ CREATE TABLE LOS_QUERY.BI_tiempo_vuelta_escuderia (
 	auto_modelo varchar(255),
 	CODIGO_CARRERA int,
 	CIRCUITO_CODIGO int,
-	anio int, --podria ser una referencia a la tabla de tiempo y obtener el año de ahi, pero seria mas complicado obtenerlo desp al pedo
-	PRIMARY KEY(escuderia_nombre, numero_vuelta, circuito_codigo, anio, auto_numero, auto_modelo),
+	codigo_tiempo int, --podria ser una referencia a la tabla de tiempo y obtener el año de ahi, pero seria mas complicado obtenerlo desp al pedo
+	PRIMARY KEY(escuderia_nombre, numero_vuelta, circuito_codigo, codigo_tiempo, auto_numero, auto_modelo),
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
 	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
-	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
+	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
+	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
+
 );
 
 --lo ideal seria tener esta tabla asi, ordenarla y obtener los primeros 3
@@ -289,11 +291,12 @@ CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
 	--le pondria un id como clave primaria
 	escuderia_nombre VARCHAR(255),
 	codigo_sector int,
-	anio int, --podria ser una fecha (se obtiene de la fecha de la carrera en la que fue ese incidente)
+	codigo_tiempo int,
 	cant_inc int,
 	tipo_sector varchar(255),
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
-	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector)
+	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector),
+	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
 );
 
 
@@ -583,9 +586,9 @@ CREATE PROCEDURE sp_migrar_BI_tiempo_vuelta_escuderia
  AS
   BEGIN
 	INSERT INTO LOS_QUERY.BI_tiempo_vuelta_escuderia(escuderia_nombre, auto_numero, auto_modelo,
-			CODIGO_CARRERA, CIRCUITO_CODIGO, anio, numero_vuelta, tiempo_vuelta)
+			CODIGO_CARRERA, CIRCUITO_CODIGO, codigo_tiempo, numero_vuelta, tiempo_vuelta)
 	SELECT esc.escuderia_nombre, au.auto_numero, au.auto_modelo,
-			car.CODIGO_CARRERA, circ.CIRCUITO_CODIGO, YEAR(car.CARRERA_FECHA) as 'Año',
+			car.CODIGO_CARRERA, circ.CIRCUITO_CODIGO, tiempo.codigo_tiempo,
 			tele.tele_numero_vuelta, MAX(tele.tele_tiempo_vuelta) as 'Tiempo vuelta'
 	FROM LOS_QUERY.telemetria_auto tele
 			JOIN LOS_QUERY.auto au on tele.tele_auto_numero = au.auto_numero and
@@ -593,9 +596,10 @@ CREATE PROCEDURE sp_migrar_BI_tiempo_vuelta_escuderia
 			JOIN LOS_QUERY.ESCUDERIA esc on au.auto_escuderia = esc.escuderia_nombre
 			JOIN LOS_QUERY.carrera car ON tele.tele_codigo_carrera = car.CODIGO_CARRERA
 			JOIN LOS_QUERY.circuito circ on circ.CIRCUITO_CODIGO = car.CARRERA_CIRCUITO_CODIGO
+		    JOIN LOS_QUERY.BI_dim_tiempos tiempo ON YEAR(car.CARRERA_FECHA) = tiempo.anio AND LOS_QUERY.get_cuatrimestre(car.CARRERA_FECHA) = tiempo.cuatrimestre
 	WHERE tele.tele_tiempo_vuelta != 0
 	GROUP BY esc.escuderia_nombre, au.auto_numero, au.auto_modelo, car.CODIGO_CARRERA,
-			tele.tele_numero_vuelta, circ.CIRCUITO_CODIGO, YEAR(car.CARRERA_FECHA)
+			tele.tele_numero_vuelta, circ.CIRCUITO_CODIGO, tiempo.codigo_tiempo
 	ORDER BY 1,2,3,4,7
   END
 GO
@@ -686,19 +690,20 @@ GO
 CREATE PROCEDURE sp_migrar_incidentes_por_escuderia
  AS
   BEGIN
-	INSERT INTO LOS_QUERY.BI_incidentes_por_escuderia(escuderia_nombre, codigo_sector, anio, cant_inc, tipo_sector)
+	INSERT INTO LOS_QUERY.BI_incidentes_por_escuderia(escuderia_nombre, codigo_sector, codigo_tiempo, cant_inc, tipo_sector)
 		SELECT
 			a.auto_escuderia as Escuderia, 
 			i.INCIDENTE_CODIGO_SECTOR as Sector_Incidente, 
-			YEAR(c.CARRERA_FECHA) as Anio_Incidente,
+			t.codigo_tiempo as Codigo_Tiempo,
 			COUNT(i.INCIDENTE_CODIGO) as Cant_Inc, --cuenta cuantos incidentes hubo en ese tipo de sector
 			s.SECTOR_TIPO as Tipo_Sector
-		FROM LOS_QUERY.auto_por_incidente api 
-			JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
+		FROM LOS_QUERY.auto_por_incidente api
+		    JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
+			JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA 	
 			JOIN LOS_QUERY.auto a ON  api.auto_incidente_numero = a.auto_numero and api.auto_incidente_modelo =  a.auto_modelo
-			JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA
+			JOIN LOS_QUERY.BI_dim_tiempos t ON YEAR(c.CARRERA_FECHA) = t.anio AND LOS_QUERY.get_cuatrimestre(c.CARRERA_FECHA) = t.cuatrimestre
 			JOIN LOS_QUERY.sector s ON i.INCIDENTE_CODIGO_SECTOR = s.CODIGO_SECTOR
-		GROUP BY a.auto_escuderia, i.INCIDENTE_CODIGO_SECTOR, s.SECTOR_TIPO, YEAR(c.CARRERA_FECHA)
+		GROUP BY a.auto_escuderia, i.INCIDENTE_CODIGO_SECTOR, s.SECTOR_TIPO, t.codigo_tiempo
 		ORDER BY 1,3
   END
 GO
@@ -710,8 +715,9 @@ GO
 CREATE PROCEDURE sp_migrar_dim_tiempos AS
     BEGIN
         INSERT INTO LOS_QUERY.BI_dim_tiempos(anio, cuatrimestre)
-           SELECT distinct YEAR(c.CARRERA_FECHA), LOS_QUERY.get_cuatrimestre(CARRERA_FECHA) 
+           SELECT DISTINCT YEAR(c.CARRERA_FECHA), LOS_QUERY.get_cuatrimestre(CARRERA_FECHA)
 		   FROM LOS_QUERY.carrera c
+		   ORDER BY 1,2
     END
 GO
 
@@ -841,15 +847,15 @@ CREATE VIEW LOS_QUERY.BI_vi_mejor_tiempo_vuelta AS
 	SELECT
 		mte.escuderia_nombre AS 'Escuderia',
 		mte.CIRCUITO_CODIGO AS 'Circuito',
-		mte.anio AS 'Año',
+		t.anio AS 'Año',
 		MIN(mte.tiempo_vuelta) AS 'Mejor Tiempo'
 	FROM LOS_QUERY.BI_tiempo_vuelta_escuderia mte
+	    JOIN LOS_QUERY.BI_dim_tiempos t ON t.codigo_tiempo = mte.codigo_tiempo
 	GROUP BY mte.escuderia_nombre,
 	mte.CIRCUITO_CODIGO,
-	mte.anio
+	t.anio
 GO
 
---SELECT * FROM LOS_QUERY.BI_vi_mejor_tiempo_vuelta
 
 -- ITEM 3
 -- "Los 3 de circuitos con mayor consumo de combustible promedio"
@@ -963,12 +969,13 @@ GO
 CREATE VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector AS
 	SELECT 
 	  ixe.escuderia_nombre as 'Escuderia',
-	  ixe.anio as 'Anio_Incidente',
+	  t.anio as 'Anio_Incidente',
 	  s.sector_tipo as 'Tipo_Sector', 
 	  AVG(ixe.cant_inc) as 'Promedio'
 	FROM LOS_QUERY.BI_dim_sector s 
 		JOIN LOS_QUERY.BI_incidentes_por_escuderia ixe ON s.codigo_sector = ixe.codigo_sector
-	GROUP BY ixe.escuderia_nombre, s.SECTOR_TIPO, ixe.anio
+		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    = ixe.codigo_tiempo
+	GROUP BY ixe.escuderia_nombre, s.SECTOR_TIPO, t.anio
 GO
 
 ---------------------------------------------------
@@ -977,6 +984,7 @@ GO
 
  BEGIN TRANSACTION
  BEGIN TRY
+    EXECUTE sp_bi_dim_tiempos
 	EXECUTE	sp_bi_dim_motor
 	EXECUTE sp_bi_dim_freno
 	EXECUTE sp_bi_dim_circuito
@@ -1051,17 +1059,20 @@ GO
 -- SELECT * FROM LOS_QUERY.BI_desgaste_promedio_caja_x_auto_x_vuelta_x_circuito
 -- SELECT * FROM LOS_QUERY.BI_desgaste_promedio_motor_x_auto_x_vuelta_x_circuito
 
+--Item 2
+-- SELECT * FROM LOS_QUERY.BI_vi_mejor_tiempo_vuelta
+
 --Item 3
 -- SELECT * FROM LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible
 
 --Item 5
--- SELECT * FROM LOS_QUERY.BI_tiempo_promedio_por_escuderia
+ --SELECT * FROM LOS_QUERY.BI_tiempo_promedio_por_escuderia
 
 --Item 6
--- SELECT * FROM LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
+ --SELECT * FROM LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
 
 --Item 7
 -- SELECT * FROM LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box
 
 --Item 9
--- SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_sector
+--SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector
