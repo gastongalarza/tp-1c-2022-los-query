@@ -270,6 +270,7 @@ tb desp a partir de esta tabla se puede ordenar por tiempo y obtener los circuit
 */
 CREATE TABLE LOS_QUERY.BI_tiempo_parada_auto (
 	--no se cual seria la clave primaria de la parada en el otro script
+	id int IDENTITY(1,1) PRIMARY KEY,
 	auto_numero int,
 	auto_modelo VARCHAR(255),
 	duracion_parada decimal, --se obtiene a partir de la tabla parada box del script inicial
@@ -281,7 +282,7 @@ CREATE TABLE LOS_QUERY.BI_tiempo_parada_auto (
 
 --creo esta para el item 7 porque no entendi como funciona lo de la tabla de arriba con cuatrimestres
 CREATE TABLE LOS_QUERY.BI_tiempo_paradas_circuito (
-	circuito_codigo int,
+	circuito_codigo int PRIMARY KEY,
 	tiempo_parada_box decimal
 	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
 );
@@ -289,6 +290,7 @@ CREATE TABLE LOS_QUERY.BI_tiempo_paradas_circuito (
 --apartir de esta tabla habria que hacer el promedio por sector para cada escuderia (entiendo que quieren saber cant de incidentes por año)
 CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
 	--le pondria un id como clave primaria
+	id int IDENTITY(1,1) PRIMARY KEY,
 	escuderia_nombre VARCHAR(255),
 	codigo_sector int,
 	codigo_tiempo int,
@@ -298,7 +300,6 @@ CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
 	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector),
 	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
 );
-
 
 --Vista 5 y 6
 CREATE TABLE LOS_QUERY.BI_fact_parada_box (
@@ -596,13 +597,15 @@ CREATE PROCEDURE sp_migrar_BI_tiempo_vuelta_escuderia
 			JOIN LOS_QUERY.ESCUDERIA esc on au.auto_escuderia = esc.escuderia_nombre
 			JOIN LOS_QUERY.carrera car ON tele.tele_codigo_carrera = car.CODIGO_CARRERA
 			JOIN LOS_QUERY.circuito circ on circ.CIRCUITO_CODIGO = car.CARRERA_CIRCUITO_CODIGO
-		    JOIN LOS_QUERY.BI_dim_tiempos tiempo ON YEAR(car.CARRERA_FECHA) = tiempo.anio AND LOS_QUERY.get_cuatrimestre(car.CARRERA_FECHA) = tiempo.cuatrimestre
+		    JOIN LOS_QUERY.BI_dim_tiempos tiempo ON YEAR(car.CARRERA_FECHA) = tiempo.anio AND
+			 						  LOS_QUERY.get_cuatrimestre(car.CARRERA_FECHA) = tiempo.cuatrimestre
 	WHERE tele.tele_tiempo_vuelta != 0
 	GROUP BY esc.escuderia_nombre, au.auto_numero, au.auto_modelo, car.CODIGO_CARRERA,
 			tele.tele_numero_vuelta, circ.CIRCUITO_CODIGO, tiempo.codigo_tiempo
 	ORDER BY 1,2,3,4,7
   END
 GO
+
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_tiempo_parada_auto')
 	DROP PROCEDURE sp_migrar_tiempo_parada_auto
@@ -984,33 +987,29 @@ GO
 
  BEGIN TRANSACTION
  BEGIN TRY
-    EXECUTE sp_bi_dim_tiempos
 	EXECUTE	sp_bi_dim_motor
 	EXECUTE sp_bi_dim_freno
 	EXECUTE sp_bi_dim_circuito
 	EXECUTE sp_bi_dim_neumatico
 	EXECUTE sp_bi_dim_caja
-
 	EXECUTE sp_bi_dim_escuderia
 	EXECUTE sp_bi_dim_sector
 	EXECUTE sp_bi_dim_incidente
 	EXECUTE sp_bi_dim_auto
 	EXECUTE sp_bi_dim_piloto
+	EXECUTE sp_migrar_dim_tiempos
 	
 	EXECUTE sp_migrar_fact_desgaste_x_vuelta_neumatico
 	EXECUTE sp_migrar_fact_desgaste_x_vuelta_frenos
 	EXECUTE sp_migrar_fact_desgaste_x_vuelta_motor
 	EXECUTE sp_migrar_fact_desgaste_x_vuelta_caja
-	EXECUTE sp_migrar_BI_tiempo_vuelta_escuderia
-	
-	EXECUTE sp_migrar_dim_tiempos
 	EXECUTE sp_migrar_velocidades_auto
 	EXECUTE sp_migrar_consumo_por_circuito
 	EXECUTE sp_migrar_incidentes_por_escuderia
 	EXECUTE sp_migrar_tiempo_paradas_circuito
-
 	EXECUTE sp_migrar_tiempo_parada_auto
 	EXECUTE sp_migrar_fact_parada_box
+	EXECUTE sp_migrar_BI_tiempo_vuelta_escuderia
 END TRY
 BEGIN CATCH
      ROLLBACK TRANSACTION;
@@ -1036,9 +1035,10 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_incidentes_por_escuderia)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_parada_auto)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_paradas_circuito)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_vuelta_escuderia)
+	-- AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_vuelta_escuderia)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_velocidades_auto)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_tiempos))
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_tiempos)
+	)
    BEGIN
 	PRINT 'Tablas migradas correctamente.';
 	COMMIT TRANSACTION;
