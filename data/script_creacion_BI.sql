@@ -31,8 +31,8 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_parada_auto')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_incidentes_por_escuderia')
 	DROP TABLE LOS_QUERY.BI_incidentes_por_escuderia
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_parada_box')
-	DROP TABLE LOS_QUERY.BI_fact_parada_box
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_hechos_parada_box')
+	DROP TABLE LOS_QUERY.BI_hechos_parada_box
 	
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_desgaste_motor')
 	DROP TABLE LOS_QUERY.BI_desgaste_motor
@@ -164,7 +164,7 @@ CREATE TABLE LOS_QUERY.BI_dim_motor (
 )
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
--- Creacion de tablas facilitadoras para el armado de las vistas --
+-- Creacion de tablas de hechos para el armado de las vistas --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -301,8 +301,8 @@ CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
 	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
 );
 
---Vista 5 y 6
-CREATE TABLE LOS_QUERY.BI_fact_parada_box (
+--HECHO Parada Box
+CREATE TABLE LOS_QUERY.BI_hechos_parada_box (
     codigo_tiempo int,
 	circuito_codigo int,
 	escuderia_nombre varchar(255),
@@ -631,14 +631,14 @@ CREATE PROCEDURE sp_migrar_tiempo_parada_auto
   END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_parada_box')
-	DROP PROCEDURE sp_migrar_fact_parada_box
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_hechos_parada_box')
+	DROP PROCEDURE sp_migrar_hechos_parada_box
 GO
 
-CREATE PROCEDURE sp_migrar_fact_parada_box
+CREATE PROCEDURE sp_migrar_hechos_parada_box
  AS
   BEGIN
-    INSERT INTO LOS_QUERY.BI_fact_parada_box(codigo_tiempo, circuito_codigo, escuderia_nombre, duracion_parada)
+    INSERT INTO LOS_QUERY.BI_hechos_parada_box(codigo_tiempo, circuito_codigo, escuderia_nombre, duracion_parada)
 	SELECT 
 		tiempo.codigo_tiempo, 
 		carrera.CARRERA_CIRCUITO_CODIGO, 
@@ -905,7 +905,7 @@ CREATE VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia AS
 		e.escuderia_nombre AS 'Escuderia',
 		t.cuatrimestre AS 'Cuatrimestre',
 		AVG(p_box.duracion_parada) AS 'Tiempo promedio tardado en paradas'
-	FROM LOS_QUERY.BI_fact_parada_box p_box
+	FROM LOS_QUERY.BI_hechos_parada_box p_box
 		JOIN LOS_QUERY.BI_dim_escuderia e ON e.escuderia_nombre = p_box.escuderia_nombre
 		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    = p_box.codigo_tiempo
 	GROUP BY e.escuderia_nombre, t.cuatrimestre
@@ -924,7 +924,7 @@ CREATE VIEW LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio AS
 		e.escuderia_nombre AS 'Escuderia',
 		t.anio AS 'Año',
 		count(*) AS 'Cantidad de Paradas'
-	FROM LOS_QUERY.BI_fact_parada_box p_box
+	FROM LOS_QUERY.BI_hechos_parada_box p_box
 		JOIN LOS_QUERY.BI_dim_circuito c  ON c.CIRCUITO_CODIGO  = p_box.circuito_codigo
 		JOIN LOS_QUERY.BI_dim_escuderia e ON e.escuderia_nombre = p_box.escuderia_nombre
 		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    = p_box.codigo_tiempo
@@ -1008,7 +1008,7 @@ GO
 	EXECUTE sp_migrar_incidentes_por_escuderia
 	EXECUTE sp_migrar_tiempo_paradas_circuito
 	EXECUTE sp_migrar_tiempo_parada_auto
-	EXECUTE sp_migrar_fact_parada_box
+	EXECUTE sp_migrar_hechos_parada_box
 	EXECUTE sp_migrar_BI_tiempo_vuelta_escuderia
 END TRY
 BEGIN CATCH
@@ -1031,7 +1031,7 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_neumatico)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_piloto)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_sector)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_fact_parada_box)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_hechos_parada_box)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_incidentes_por_escuderia)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_parada_auto)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_paradas_circuito)
