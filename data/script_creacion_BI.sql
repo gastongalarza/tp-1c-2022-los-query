@@ -82,6 +82,15 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_caja')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_escuderia')
 	DROP TABLE LOS_QUERY.BI_dim_escuderia
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_sector')
+	DROP TABLE LOS_QUERY.BI_dim_tipo_sector
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_neumatico')
+	DROP TABLE LOS_QUERY.BI_dim_tipo_neumatico
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_incidentes')
+	DROP TABLE LOS_QUERY.BI_dim_tipo_incidentes
+
 CREATE TABLE LOS_QUERY.BI_dim_tiempos (
 	codigo_tiempo int IDENTITY PRIMARY KEY,
 	anio int,
@@ -161,6 +170,21 @@ CREATE TABLE LOS_QUERY.BI_dim_freno (
 CREATE TABLE LOS_QUERY.BI_dim_motor (
 	motor_nro_serie VARCHAR(255) not null PRIMARY KEY,
 	motor_modelo VARCHAR(255) not null
+)
+
+CREATE TABLE LOS_QUERY.BI_dim_tipo_sector (
+	codigo_tipo_sector int IDENTITY PRIMARY KEY, 
+	tipo_sector nvarchar(255),
+)
+
+CREATE TABLE LOS_QUERY.BI_dim_tipo_neumatico (
+	codigo_tipo_neumatico int IDENTITY PRIMARY KEY, 
+	tipo_neumatico nvarchar(255),
+)
+
+CREATE TABLE LOS_QUERY.BI_dim_tipo_incidentes (
+	codigo_tipo_incidentes int IDENTITY PRIMARY KEY, 
+	tipo_incidente nvarchar(255),
 )
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -301,12 +325,27 @@ CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
 	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
 );
 
+--HECHO Incidentes
+CREATE TABLE LOS_QUERY.BI_hechos_incidentes (
+    id int NOT NULL IDENTITY PRIMARY KEY,
+	escuderia_nombre VARCHAR(255),
+	codigo_sector int,
+	codigo_tiempo int,
+	cant_inc int,
+	tipo_sector varchar(255),
+	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
+	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector),
+	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
+)
+
 --HECHO Parada Box
 CREATE TABLE LOS_QUERY.BI_hechos_parada_box (
+    id int NOT NULL IDENTITY,
     codigo_tiempo int,
 	circuito_codigo int,
 	escuderia_nombre varchar(255),
 	duracion_parada decimal(18,2),
+	PRIMARY KEY (id),
 	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo),
 	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre)
@@ -746,6 +785,45 @@ CREATE PROCEDURE sp_migrar_velocidades_auto
 	END
   GO
 
+IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_sector')
+	DROP PROCEDURE sp_bi_dim_tipo_sector
+GO
+
+/*
+CREATE PROCEDURE sp_bi_dim_tipo_sector
+ AS
+  BEGIN
+   INSERT INTO LOS_QUERY.BI_dim_tipo_sector (motor_nro_serie, motor_modelo)
+	SELECT DISTINCT motor_nro_serie, motor_modelo
+	FROM LOS_QUERY.motor
+	WHERE motor_nro_serie IS NOT NULL and motor_modelo IS NOT NULL 
+  END
+GO
+*/
+
+/*
+CREATE PROCEDURE sp_bi_dim_tipo_neumatico
+ AS
+  BEGIN
+   INSERT INTO LOS_QUERY.BI_dim_tipo_neumatico (motor_nro_serie, motor_modelo)
+	SELECT DISTINCT motor_nro_serie, motor_modelo
+	FROM LOS_QUERY.motor
+	WHERE motor_nro_serie IS NOT NULL and motor_modelo IS NOT NULL 
+  END
+GO
+*/
+
+/*
+CREATE PROCEDURE sp_bi_dim_tipo_incidentes
+ AS
+  BEGIN
+   INSERT INTO LOS_QUERY.BI_dim_tipo_incidentes (motor_nro_serie, motor_modelo)
+	SELECT DISTINCT motor_nro_serie, motor_modelo
+	FROM LOS_QUERY.motor
+	WHERE motor_nro_serie IS NOT NULL and motor_modelo IS NOT NULL 
+  END
+GO
+*/
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
