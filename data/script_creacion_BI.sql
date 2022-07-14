@@ -493,7 +493,7 @@ CREATE PROCEDURE sp_migrar_fact_sector_vuelta_carrera
 		auto.auto_escuderia, --escuderia_nombre
 		ta.tele_numero_vuelta,
 		ta.tele_tiempo_vuelta,
-		MAX(ta.tele_auto_velocidad) ,
+		MAX(ta.tele_auto_velocidad),
 		MAX(ta.tele_auto_combustible) - MIN(ta.tele_auto_combustible), --consumo_combustible_x_sector
 		ca.CARRERA_CIRCUITO_CODIGO,
 		ca.CODIGO_CARRERA,
@@ -602,8 +602,6 @@ CREATE PROCEDURE sp_migrar_fact_sector_vuelta_carrera
 			fm4.TELE_FRENO_NRO_SERIE,
 			tm.tele_motor_nro_serie,
 			tc.tele_caja_nro_serie
-
-
   END
 GO
 
