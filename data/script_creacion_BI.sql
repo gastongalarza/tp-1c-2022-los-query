@@ -580,7 +580,30 @@ CREATE PROCEDURE sp_migrar_fact_sector_vuelta_carrera
 
 		JOIN LOS_QUERY.telemetria_motor tm ON tm.tele_motor_telemetria = ta.tele_auto_codigo
 		JOIN LOS_QUERY.telemetria_caja tc ON tc.tele_caja_codigo = ta.tele_auto_codigo
-			
+		
+		GROUP BY 
+			ta.tele_auto_numero, 
+			ta.tele_auto_modelo,
+			auto.auto_escuderia,
+			ta.tele_numero_vuelta,
+			ta.tele_tiempo_vuelta,
+			ca.CARRERA_CIRCUITO_CODIGO,
+			ca.CODIGO_CARRERA,
+			ta.tele_codigo_sector,
+			se.SECTOR_TIPO,
+			tiempo.codigo_tiempo,
+			mn1.tele_neumatico_nro_serie,
+			mn2.tele_neumatico_nro_serie,
+			mn3.tele_neumatico_nro_serie,
+			mn4.tele_neumatico_nro_serie,
+			fm1.TELE_FRENO_NRO_SERIE,
+			fm2.TELE_FRENO_NRO_SERIE,
+			fm3.TELE_FRENO_NRO_SERIE,
+			fm4.TELE_FRENO_NRO_SERIE,
+			tm.tele_motor_nro_serie,
+			tc.tele_caja_nro_serie
+
+
   END
 GO
 
