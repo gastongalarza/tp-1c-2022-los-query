@@ -3,8 +3,8 @@ USE GD1C2022
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas dimensionales --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_vuelta_carrera')
-	DROP TABLE LOS_QUERY.BI_fact_vuelta_carrera
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_sector_vuelta_carrera')
+	DROP TABLE LOS_QUERY.BI_fact_sector_vuelta_carrera
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_paradas_circuito')
 	DROP TABLE LOS_QUERY.BI_tiempo_paradas_circuito
@@ -192,7 +192,7 @@ CREATE TABLE LOS_QUERY.BI_dim_tipo_incidentes (
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas de hechos para el armado de las vistas --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-CREATE TABLE LOS_QUERY.BI_fact_vuelta_carrera (
+CREATE TABLE LOS_QUERY.BI_fact_sector_vuelta_carrera (
 	id int IDENTITY PRIMARY KEY,
 	auto_numero int, --FK
 	auto_modelo VARCHAR(255), --FK
@@ -478,22 +478,109 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_desga
 	DROP PROCEDURE sp_migrar_fact_desgaste_x_vuelta_neumatico
 GO
 
-CREATE PROCEDURE sp_migrar_fact_desgaste_x_vuelta_neumatico
+CREATE PROCEDURE sp_migrar_fact_sector_vuelta_carrera
  AS
   BEGIN
-	INSERT INTO LOS_QUERY.BI_desgaste_x_vuelta_neumatico (neumatico_nro_serie, auto_numero, auto_modelo, desgaste, vuelta, circuito_codigo)
-	SELECT 
-		mpn.tele_neumatico_nro_serie, 
+	INSERT INTO LOS_QUERY.BI_fact_sector_vuelta_carrera (
+		auto_numero, auto_modelo, escuderia_nombre, vuelta,	tiempo_vuelta, velocidad, consumo_combustible, circuito_codigo, 
+		carrera_codigo, sector_codigo, sector_tipo, codigo_tiempo, neumatico1_nro_serie, neumatico1_desgaste, neumatico2_nro_serie, neumatico2_desgaste, 
+		neumatico3_nro_serie, neumatico3_desgaste, neumatico4_nro_serie, neumatico4_desgaste, freno1_nro_serie, freno1_desgaste, freno2_nro_serie, freno2_desgaste, 
+		freno3_nro_serie, freno3_desgaste, freno4_nro_serie, freno4_desgaste, motor_nro_serie, motor_desgaste, caja_nro_serie, caja_desgaste
+	)
+	SELECT
 		ta.tele_auto_numero, 
-		ta.tele_auto_modelo, 
-		MAX(mpn.tele_neumatico_profundidad) - MIN(mpn.tele_neumatico_profundidad) as desgaste, 
-		ta.tele_numero_vuelta, 
-		ca.CARRERA_CIRCUITO_CODIGO
-	FROM LOS_QUERY.medicion_por_neumatico mpn
-		LEFT JOIN LOS_QUERY.telemetria_auto ta on mpn.tele_auto_codigo = ta.tele_auto_codigo
-		LEFT JOIN LOS_QUERY.carrera ca on ca.CODIGO_CARRERA = ta.tele_codigo_carrera
-	GROUP BY mpn.tele_neumatico_nro_serie, ta.tele_auto_numero, ta.tele_auto_modelo, ta.tele_numero_vuelta, ca.CARRERA_CIRCUITO_CODIGO
-	HAVING MAX(mpn.tele_neumatico_profundidad) - MIN(mpn.tele_neumatico_profundidad) <> 0
+		ta.tele_auto_modelo,
+		auto.auto_escuderia, --escuderia_nombre
+		ta.tele_numero_vuelta,
+		ta.tele_tiempo_vuelta,
+		MAX(ta.tele_auto_velocidad) ,
+		MAX(ta.tele_auto_combustible) - MIN(ta.tele_auto_combustible), --consumo_combustible_x_sector
+		ca.CARRERA_CIRCUITO_CODIGO,
+		ca.CODIGO_CARRERA,
+		ta.tele_codigo_sector,
+		se.SECTOR_TIPO,
+		tiempo.codigo_tiempo,
+
+		mn1.tele_neumatico_nro_serie,
+		MAX(mn1.tele_neumatico_profundidad) - MIN(mn1.tele_neumatico_profundidad), --desgaste_neumatico_1
+		mn2.tele_neumatico_nro_serie,
+		MAX(mn2.tele_neumatico_profundidad) - MIN(mn2.tele_neumatico_profundidad), --desgaste_neumatico_2
+		mn3.tele_neumatico_nro_serie,
+		MAX(mn3.tele_neumatico_profundidad) - MIN(mn3.tele_neumatico_profundidad), --desgaste_neumatico_3
+		mn4.tele_neumatico_nro_serie,
+		MAX(mn4.tele_neumatico_profundidad) - MIN(mn4.tele_neumatico_profundidad), --desgaste_neumatico_4
+
+		fm1.TELE_FRENO_NRO_SERIE,
+		MAX(fm1.TELE_FRENO_GROSOR_PASTILLA) - MIN(fm1.TELE_FRENO_GROSOR_PASTILLA), --desgaste_freno_1
+		fm2.TELE_FRENO_NRO_SERIE,
+		MAX(fm2.TELE_FRENO_GROSOR_PASTILLA) - MIN(fm2.TELE_FRENO_GROSOR_PASTILLA), --desgaste_freno_2
+		fm3.TELE_FRENO_NRO_SERIE,
+		MAX(fm3.TELE_FRENO_GROSOR_PASTILLA) - MIN(fm3.TELE_FRENO_GROSOR_PASTILLA), --desgaste_freno_3
+		fm4.TELE_FRENO_NRO_SERIE,
+		MAX(fm4.TELE_FRENO_GROSOR_PASTILLA) - MIN(fm4.TELE_FRENO_GROSOR_PASTILLA), --desgaste_freno_4
+
+		tm.tele_motor_nro_serie,
+		MAX(tm.tele_motor_potencia) - MIN(tm.tele_motor_potencia), --desgaste_motor
+
+		tc.tele_caja_nro_serie,
+		MAX(tc.tele_caja_desgaste) - MIN(tc.tele_caja_desgaste) --desgaste_caja
+	FROM LOS_QUERY.telemetria_auto ta
+		JOIN LOS_QUERY.auto auto ON ta.tele_auto_numero = auto.auto_numero AND ta.tele_auto_modelo = auto.auto_modelo
+		JOIN LOS_QUERY.carrera ca ON ca.CODIGO_CARRERA = ta.tele_codigo_carrera
+		JOIN LOS_QUERY.sector se ON se.CODIGO_SECTOR = ta.tele_codigo_sector
+		JOIN LOS_QUERY.BI_dim_tiempos tiempo ON YEAR(ca.CARRERA_FECHA) = tiempo.anio AND LOS_QUERY.get_cuatrimestre(ca.CARRERA_FECHA) = tiempo.cuatrimestre
+		
+		JOIN LOS_QUERY.medicion_por_neumatico mn1 ON mn1.tele_auto_codigo = ta.tele_auto_codigo AND 
+			(	SELECT TOP 1 n1.neumatico_posicion 
+				FROM LOS_QUERY.neumatico n1
+				WHERE n1.neumatico_nro_serie = mn1.tele_neumatico_nro_serie
+			) = 'Delantero Izquierdo'
+
+		JOIN LOS_QUERY.medicion_por_neumatico mn2 ON mn2.tele_auto_codigo = ta.tele_auto_codigo AND 
+			(	SELECT TOP 1 n2.neumatico_posicion 
+				FROM LOS_QUERY.neumatico n2
+				WHERE n2.neumatico_nro_serie = mn2.tele_neumatico_nro_serie
+			) = 'Delantero Derecho'
+
+		JOIN LOS_QUERY.medicion_por_neumatico mn3 ON mn3.tele_auto_codigo = ta.tele_auto_codigo AND 
+			(	SELECT TOP 1 n3.neumatico_posicion 
+				FROM LOS_QUERY.neumatico n3
+				WHERE n3.neumatico_nro_serie = mn3.tele_neumatico_nro_serie
+			) = 'Trasero Izquierdo'
+
+		JOIN LOS_QUERY.medicion_por_neumatico mn4 ON mn4.tele_auto_codigo = ta.tele_auto_codigo AND 
+			(	SELECT TOP 1 n4.neumatico_posicion 
+				FROM LOS_QUERY.neumatico n4
+				WHERE n4.neumatico_nro_serie = mn4.tele_neumatico_nro_serie
+			) = 'Trasero Derecho'
+
+		JOIN LOS_QUERY.frenos_por_medicion fm1 ON fm1.AUTO_CODIGO = ta.tele_auto_codigo AND 
+			(	SELECT TOP 1 f1.FRENO_POSICION 
+				FROM LOS_QUERY.freno f1
+				WHERE f1.FRENO_NRO_SERIE = fm1.TELE_FRENO_NRO_SERIE
+			) = 'Delantero Izquierdo'
+
+		JOIN LOS_QUERY.frenos_por_medicion fm2 ON fm2.AUTO_CODIGO = ta.tele_auto_codigo AND 
+			(	SELECT TOP 1 f2.FRENO_POSICION 
+				FROM LOS_QUERY.freno f2
+				WHERE f2.FRENO_NRO_SERIE = fm2.TELE_FRENO_NRO_SERIE
+			) = 'Delantero Derecho'
+
+		JOIN LOS_QUERY.frenos_por_medicion fm3 ON fm3.AUTO_CODIGO = ta.tele_auto_codigo AND 
+			(	SELECT TOP 1 f3.FRENO_POSICION 
+				FROM LOS_QUERY.freno f3
+				WHERE f3.FRENO_NRO_SERIE = fm3.TELE_FRENO_NRO_SERIE
+			) = 'Trasero Izquierdo'
+
+		JOIN LOS_QUERY.frenos_por_medicion fm4 ON fm4.AUTO_CODIGO = ta.tele_auto_codigo AND 
+			(	SELECT TOP 1 f4.FRENO_POSICION 
+				FROM LOS_QUERY.freno f4
+				WHERE f4.FRENO_NRO_SERIE = fm4.TELE_FRENO_NRO_SERIE
+			) = 'Trasero Derecho'
+
+		JOIN LOS_QUERY.telemetria_motor tm ON tm.tele_motor_telemetria = ta.tele_auto_codigo
+		JOIN LOS_QUERY.telemetria_caja tc ON tc.tele_caja_codigo = ta.tele_auto_codigo
+			
   END
 GO
 
