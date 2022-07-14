@@ -3,6 +3,8 @@ USE GD1C2022
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas dimensionales --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_vuelta_carrera')
+	DROP TABLE LOS_QUERY.BI_fact_vuelta_carrera
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_paradas_circuito')
 	DROP TABLE LOS_QUERY.BI_tiempo_paradas_circuito
@@ -190,97 +192,45 @@ CREATE TABLE LOS_QUERY.BI_dim_tipo_incidentes (
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas de hechos para el armado de las vistas --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-CREATE TABLE LOS_QUERY.BI_desgaste_x_vuelta_neumatico (
-	neumatico_nro_serie VARCHAR(255),
-	auto_numero int,
-	auto_modelo VARCHAR(255),
-	desgaste decimal(18,6),
+CREATE TABLE LOS_QUERY.BI_fact_vuelta_carrera (
+	id int IDENTITY PRIMARY KEY,
+	auto_numero int, --FK
+	auto_modelo VARCHAR(255), --FK
+	escuderia_nombre VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
 	vuelta decimal(18,0),
-	circuito_codigo int,
-	PRIMARY KEY(neumatico_nro_serie, vuelta, circuito_codigo),
-	FOREIGN KEY (neumatico_nro_serie) REFERENCES LOS_QUERY.BI_dim_neumatico(neumatico_nro_serie),
-	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
-	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
-);
-
-CREATE TABLE LOS_QUERY.BI_desgaste_x_vuelta_frenos (
-	freno_nro_serie VARCHAR(255),
-	auto_numero int,
-	auto_modelo VARCHAR(255),
-	desgaste decimal(18,6),
-	vuelta decimal(18,0),
-	circuito_codigo int,
-	PRIMARY KEY(freno_nro_serie, vuelta, circuito_codigo),
-	FOREIGN KEY (freno_nro_serie) REFERENCES LOS_QUERY.BI_dim_freno(FRENO_NRO_SERIE),
-	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
-	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
-);
-
-CREATE TABLE LOS_QUERY.BI_desgaste_x_vuelta_motor (
-	motor_nro_serie VARCHAR(255),
-	auto_numero int,
-	auto_modelo VARCHAR(255),
-	desgaste decimal(18,6),
-	vuelta decimal(18,0),
-	circuito_codigo int,
-	PRIMARY KEY(motor_nro_serie, vuelta, circuito_codigo),
-	FOREIGN KEY (motor_nro_serie) REFERENCES LOS_QUERY.BI_dim_motor(motor_nro_serie),
-	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
-	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
-);
-
-CREATE TABLE LOS_QUERY.BI_desgaste_x_vuelta_caja (
-	caja_nro_serie VARCHAR(255),
-	auto_numero int,
-	auto_modelo VARCHAR(255),
-	desgaste decimal(18,6),
-	vuelta decimal(18,0),
-	circuito_codigo int,
-	PRIMARY KEY(caja_nro_serie, vuelta, circuito_codigo),
-	FOREIGN KEY (caja_nro_serie) REFERENCES LOS_QUERY.BI_dim_caja(caja_nro_serie),
-	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
-	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
-);
-
---misma logica que antes, hacer una tabla con los datos necesarios y despues solamente habria que agrupar por escuderia y año y obtener el mejor tiempo
-CREATE TABLE LOS_QUERY.BI_tiempo_vuelta_escuderia (
-	escuderia_nombre VARCHAR(255),
-	numero_vuelta decimal(18,0),
 	tiempo_vuelta decimal(18,10),
-	auto_numero int,
-	auto_modelo varchar(255),
-	CODIGO_CARRERA int,
-	CIRCUITO_CODIGO int,
-	codigo_tiempo int, --podria ser una referencia a la tabla de tiempo y obtener el año de ahi, pero seria mas complicado obtenerlo desp al pedo
-	PRIMARY KEY(escuderia_nombre, numero_vuelta, circuito_codigo, codigo_tiempo, auto_numero, auto_modelo),
-	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
-	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
-	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
-	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
-
-);
-
---lo ideal seria tener esta tabla asi, ordenarla y obtener los primeros 3
-CREATE TABLE LOS_QUERY.BI_consumo_por_circuito (
-	ciruito_codigo int PRIMARY KEY,
-	consumo_combustible int, --si no cambie este comentario es pq no se me ocurrio como obtenerlo (tal vez falten datos)
-	FOREIGN KEY (ciruito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
-);
-
---se agrupa por auto, circuito y sector y se muestra la que tiene la velocidad maxima
-CREATE TABLE LOS_QUERY.BI_velocidades_auto (
-	auto_numero int,
-	auto_modelo VARCHAR(255),
-	velocidad decimal(18,2), --se obtienen todas las velocidades haciendo un group_by de auto, circuito y sector de cada telemetria para obtener todas las velocidades
-	ciruito_codigo int,
-	codigo_sector int,
+	velocidad decimal(18,2),
+	consumo_combustible int,
+	circuito_codigo int FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
+	carrera_codigo int,
+	sector_codigo int FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector),
 	sector_tipo varchar(255),
-	PRIMARY KEY(auto_numero, auto_modelo, ciruito_codigo, codigo_sector),
-	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
-	FOREIGN KEY (ciruito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
-	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector)
+	codigo_tiempo int FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo),
+
+	neumatico1_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_neumatico(neumatico_nro_serie),
+	neumatico1_desgaste decimal(18,6),
+	neumatico2_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_neumatico(neumatico_nro_serie),
+	neumatico2_desgaste decimal(18,6),
+	neumatico3_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_neumatico(neumatico_nro_serie),
+	neumatico3_desgaste decimal(18,6),
+	neumatico4_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_neumatico(neumatico_nro_serie),
+	neumatico4_desgaste decimal(18,6),
+
+	freno1_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_freno(FRENO_NRO_SERIE),
+	freno1_desgaste decimal(18,6),
+	freno2_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_freno(FRENO_NRO_SERIE),
+	freno2_desgaste decimal(18,6),
+	freno3_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_freno(FRENO_NRO_SERIE),
+	freno3_desgaste decimal(18,6),
+	freno4_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_freno(FRENO_NRO_SERIE),
+	freno4_desgaste decimal(18,6),
+
+	motor_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_motor(motor_nro_serie),
+	motor_desgaste decimal(18,6),
+	caja_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_caja(caja_nro_serie),
+	caja_desgaste decimal(18,6),
+
+	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo)
 );
 
 /*
