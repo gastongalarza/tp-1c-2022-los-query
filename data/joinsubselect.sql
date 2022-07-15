@@ -5,9 +5,9 @@ SELECT
 		ta.tele_auto_modelo,
 		auto.auto_escuderia, --escuderia_nombre
 		ta.tele_numero_vuelta,
-		ta.tele_tiempo_vuelta,
-		--MAX(ta.tele_auto_velocidad),
-		--MAX(ta.tele_auto_combustible) - MIN(ta.tele_auto_combustible), --consumo_combustible_x_sector
+		MAX(ta.tele_tiempo_vuelta),
+		MAX(ta.tele_auto_velocidad),
+		MAX(ta.tele_auto_combustible) - MIN(ta.tele_auto_combustible), --consumo_combustible_x_sector
 		ca.CARRERA_CIRCUITO_CODIGO,
 		ca.CODIGO_CARRERA,
 		ta.tele_codigo_sector,
@@ -23,7 +23,7 @@ SELECT
 			JOIN LOS_QUERY.carrera cas ON cas.CARRERA_CIRCUITO_CODIGO = tas.tele_codigo_carrera
 			WHERE mpn.tele_neumatico_nro_serie = mn1.tele_neumatico_nro_serie AND n.neumatico_posicion = 'Delantero Izquierdo' AND tas.tele_codigo_sector = ta.tele_codigo_sector
 			GROUP BY mpn.tele_neumatico_nro_serie, tas.tele_auto_numero, tas.tele_auto_modelo, tas.tele_numero_vuelta, cas.CARRERA_CIRCUITO_CODIGO, tas.tele_codigo_sector
-			HAVING MAX(mpn.tele_neumatico_nro_serie) - MIN(mpn.tele_neumatico_nro_serie) <> 0
+			HAVING MAX(mpn.tele_neumatico_profundidad) - MIN(mpn.tele_neumatico_profundidad) <> 0
 		) as desgaste_neum_del_iz,
 
 		mn2.tele_neumatico_nro_serie,
@@ -35,7 +35,7 @@ SELECT
 			JOIN LOS_QUERY.carrera cas ON cas.CARRERA_CIRCUITO_CODIGO = tas.tele_codigo_carrera
 			WHERE mpn.tele_neumatico_nro_serie = mn2.tele_neumatico_nro_serie AND n.neumatico_posicion = 'Delantero Derecho' AND tas.tele_codigo_sector = ta.tele_codigo_sector
 			GROUP BY mpn.tele_neumatico_nro_serie, tas.tele_auto_numero, tas.tele_auto_modelo, tas.tele_numero_vuelta, cas.CARRERA_CIRCUITO_CODIGO, tas.tele_codigo_sector
-			HAVING MAX(mpn.tele_neumatico_nro_serie) - MIN(mpn.tele_neumatico_nro_serie) <> 0
+			HAVING MAX(mpn.tele_neumatico_profundidad) - MIN(mpn.tele_neumatico_profundidad) <> 0
 		) as desgaste_neum_del_der,
 
 		mn3.tele_neumatico_nro_serie,
@@ -47,7 +47,7 @@ SELECT
 			JOIN LOS_QUERY.carrera cas ON cas.CARRERA_CIRCUITO_CODIGO = tas.tele_codigo_carrera
 			WHERE mpn.tele_neumatico_nro_serie = mn3.tele_neumatico_nro_serie AND n.neumatico_posicion = 'Trasero Izquierdo' AND tas.tele_codigo_sector = ta.tele_codigo_sector
 			GROUP BY mpn.tele_neumatico_nro_serie, tas.tele_auto_numero, tas.tele_auto_modelo, tas.tele_numero_vuelta, cas.CARRERA_CIRCUITO_CODIGO, tas.tele_codigo_sector
-			HAVING MAX(mpn.tele_neumatico_nro_serie) - MIN(mpn.tele_neumatico_nro_serie) <> 0
+			HAVING MAX(mpn.tele_neumatico_profundidad) - MIN(mpn.tele_neumatico_profundidad) <> 0
 		) as desgaste_neum_tras_iz,
 
 		mn4.tele_neumatico_nro_serie,
@@ -59,7 +59,7 @@ SELECT
 			JOIN LOS_QUERY.carrera cas ON cas.CARRERA_CIRCUITO_CODIGO = tas.tele_codigo_carrera
 			WHERE mpn.tele_neumatico_nro_serie = mn4.tele_neumatico_nro_serie AND n.neumatico_posicion = 'Trasero Derecho' AND tas.tele_codigo_sector = ta.tele_codigo_sector
 			GROUP BY mpn.tele_neumatico_nro_serie, tas.tele_auto_numero, tas.tele_auto_modelo, tas.tele_numero_vuelta, cas.CARRERA_CIRCUITO_CODIGO, tas.tele_codigo_sector
-			HAVING MAX(mpn.tele_neumatico_nro_serie) - MIN(mpn.tele_neumatico_nro_serie) <> 0
+			HAVING MAX(mpn.tele_neumatico_profundidad) - MIN(mpn.tele_neumatico_profundidad) <> 0
 		) as desgaste_neum_tras_der,
 
 		fm1.TELE_FRENO_NRO_SERIE,
@@ -111,10 +111,10 @@ SELECT
 		) as desgaste_freno_tras_der,
 
 		tm.tele_motor_nro_serie,
-		--MAX(tm.tele_motor_potencia) - MIN(tm.tele_motor_potencia), --desgaste_motor
+		MAX(tm.tele_motor_potencia) - MIN(tm.tele_motor_potencia), --desgaste_motor
 
-		tc.tele_caja_nro_serie
-		--MAX(tc.tele_caja_desgaste) - MIN(tc.tele_caja_desgaste) --desgaste_caja
+		tc.tele_caja_nro_serie,
+		MAX(tc.tele_caja_desgaste) - MIN(tc.tele_caja_desgaste) --desgaste_caja
 	FROM LOS_QUERY.telemetria_auto ta
 		JOIN LOS_QUERY.auto auto ON ta.tele_auto_numero = auto.auto_numero AND ta.tele_auto_modelo = auto.auto_modelo
 		JOIN LOS_QUERY.carrera ca ON ca.CODIGO_CARRERA = ta.tele_codigo_carrera
