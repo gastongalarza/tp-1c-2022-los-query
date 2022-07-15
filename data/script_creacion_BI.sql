@@ -364,6 +364,7 @@ CREATE TABLE LOS_QUERY.BI_fact_parada_box (
     codigo_tiempo int,
 	circuito_codigo int,
 	escuderia_nombre varchar(255),
+	codigo_parada int,
 	duracion_parada decimal(18,2),
 	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo),
 	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
@@ -696,11 +697,12 @@ GO
 CREATE PROCEDURE sp_migrar_fact_parada_box
  AS
   BEGIN
-    INSERT INTO LOS_QUERY.BI_fact_parada_box(codigo_tiempo, circuito_codigo, escuderia_nombre, duracion_parada)
+    INSERT INTO LOS_QUERY.BI_fact_parada_box(codigo_tiempo, circuito_codigo, escuderia_nombre,codigo_parada, duracion_parada)
 	SELECT 
 		tiempo.codigo_tiempo, 
 		carrera.CARRERA_CIRCUITO_CODIGO, 
-		auto.auto_escuderia, 
+		auto.auto_escuderia,
+		PARADA_CODIGO, 
 		PARADA_DURACION
 	FROM LOS_QUERY.parada_box
 		JOIN LOS_QUERY.carrera ON parada_box.PARADA_CODIGO_CARRERA = carrera.CODIGO_CARRERA
@@ -1019,11 +1021,12 @@ CREATE VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia AS
 	SELECT
 		e.escuderia_nombre AS 'Escuderia',
 		t.cuatrimestre AS 'Cuatrimestre',
+		t.anio AS 'Año',
 		AVG(p_box.duracion_parada) AS 'Tiempo promedio tardado en paradas'
 	FROM LOS_QUERY.BI_fact_parada_box p_box
 		JOIN LOS_QUERY.BI_dim_escuderia e ON e.escuderia_nombre = p_box.escuderia_nombre
 		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    = p_box.codigo_tiempo
-	GROUP BY e.escuderia_nombre, t.cuatrimestre
+	GROUP BY e.escuderia_nombre, t.cuatrimestre, t.anio
 GO
 
 --ITEM 6
@@ -1035,10 +1038,10 @@ GO
 
 CREATE VIEW LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio AS
 	SELECT
+		t.anio AS 'Año',
 		c.CIRCUITO_NOMBRE AS 'Circuito',
 		e.escuderia_nombre AS 'Escuderia',
-		t.anio AS 'Año',
-		count(*) AS 'Cantidad de Paradas'
+		count(p_box.codigo_parada) AS 'Cantidad de Paradas'
 	FROM LOS_QUERY.BI_fact_parada_box p_box
 		JOIN LOS_QUERY.BI_dim_circuito c  ON c.CIRCUITO_CODIGO  = p_box.circuito_codigo
 		JOIN LOS_QUERY.BI_dim_escuderia e ON e.escuderia_nombre = p_box.escuderia_nombre
@@ -1054,11 +1057,11 @@ IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_circuitos_mayor_tiempo
 GO
 
 CREATE VIEW LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box AS
-	SELECT
-		TOP 3 c.circuito_codigo AS 'Circuito',
-		c.tiempo_parada_box as 'Tiempo en Parada Box'
-	FROM LOS_QUERY.BI_tiempo_paradas_circuito c
-	ORDER BY 2 DESC
+	SELECT TOP 3
+		p_box.circuito_codigo AS 'Circuito',
+		SUM(p_box.duracion_parada) as 'Tiempo en Parada Box'
+	FROM LOS_QUERY.BI_fact_parada_box p_box
+	GROUP BY p_box.circuito_codigo
 GO
 
 --ITEM 8
@@ -1228,7 +1231,8 @@ GO
 -- SELECT * FROM LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible
 
 --Item 5
- --SELECT * FROM LOS_QUERY.BI_tiempo_promedio_por_escuderia
+ SELECT * FROM LOS_QUERY.BI_tiempo_promedio_por_escuderia
+
 
 --Item 6
  --SELECT * FROM LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
@@ -1237,12 +1241,13 @@ GO
 -- SELECT * FROM LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box
 
 --Item 8
-SELECT * FROM LOS_QUERY.BI_circuitos_mas_peligrosos
+--SELECT * FROM LOS_QUERY.BI_circuitos_mas_peligrosos
 --Item 8
-SELECT * FROM LOS_QUERY.BI_circuitos_mas_peligrososs
+--SELECT * FROM LOS_QUERY.BI_circuitos_mas_peligrososs
 
 --Item 9
-SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector
+--SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector
 
 --Item 9
-SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sectorr
+--SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sectorr
+z
