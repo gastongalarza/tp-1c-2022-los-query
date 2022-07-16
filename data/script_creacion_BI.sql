@@ -188,6 +188,7 @@ CREATE TABLE LOS_QUERY.BI_dim_motor (
 	motor_modelo VARCHAR(255) not null
 )
 
+--creo que no se usa, borrarrrrrrr
 CREATE TABLE LOS_QUERY.BI_dim_carrera (
     CODIGO_CARRERA int,
 	CARRERA_CIRCUITO_CODIGO int not null,
@@ -303,7 +304,6 @@ CREATE TABLE LOS_QUERY.BI_tiempo_parada_auto (
 
 --HECHO Incidentes
 CREATE TABLE LOS_QUERY.BI_fact_incidentes (
-    id int NOT NULL IDENTITY PRIMARY KEY,
 	circuito_codigo int,
 	escuderia_nombre VARCHAR(255),
 	codigo_sector int,
@@ -311,6 +311,7 @@ CREATE TABLE LOS_QUERY.BI_fact_incidentes (
 	cant_inc int,
     codigo_tipo_incidente int,
 	codigo_tipo_sector int,
+	PRIMARY KEY(circuito_codigo, escuderia_nombre, codigo_sector, codigo_tiempo, codigo_tipo_incidente,codigo_tipo_sector),
 	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
 	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector),
@@ -326,6 +327,7 @@ CREATE TABLE LOS_QUERY.BI_fact_parada_box (
 	escuderia_nombre varchar(255),
 	codigo_parada int,
 	duracion_parada decimal(18,2),
+	PRIMARY KEY(codigo_tiempo, circuito_codigo, escuderia_nombre, codigo_parada),
 	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo),
 	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre)
@@ -360,7 +362,7 @@ CREATE FUNCTION LOS_QUERY.get_cuatrimestre(@fecha DATE)
 GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
--- Creacion de procedimientos --
+-- Creacion de procedimientos tablas dimensionales--
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_motor')
@@ -500,6 +502,58 @@ CREATE PROCEDURE sp_bi_dim_piloto
 	SELECT DISTINCT piloto_nombre, piloto_apellido, piloto_auto_numero, piloto_auto_modelo, piloto_nacionalidad, piloto_fecha_nacimiento
 	FROM LOS_QUERY.piloto
 	WHERE piloto_nombre IS NOT NULL AND piloto_apellido IS NOT NULL
+  END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_dim_tiempos')
+	DROP PROCEDURE sp_migrar_dim_tiempos
+GO
+
+CREATE PROCEDURE sp_migrar_dim_tiempos AS
+    BEGIN
+        INSERT INTO LOS_QUERY.BI_dim_tiempos(anio, cuatrimestre)
+           SELECT DISTINCT YEAR(c.CARRERA_FECHA), LOS_QUERY.get_cuatrimestre(CARRERA_FECHA)
+		   FROM LOS_QUERY.carrera c
+		   ORDER BY 1,2
+    END
+GO
+
+IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_sector')
+	DROP PROCEDURE sp_bi_dim_tipo_sector
+GO
+
+CREATE PROCEDURE sp_bi_dim_tipo_sector
+ AS
+  BEGIN
+   INSERT INTO LOS_QUERY.BI_dim_tipo_sector (tipo_sector)
+	SELECT DISTINCT SECTOR_TIPO
+	FROM LOS_QUERY.sector
+  END
+GO
+
+IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_incidentes')
+	DROP PROCEDURE sp_bi_dim_tipo_incidentes
+GO
+
+CREATE PROCEDURE sp_bi_dim_tipo_incidentes
+ AS
+  BEGIN
+   INSERT INTO LOS_QUERY.BI_dim_tipo_incidentes (tipo_incidente)
+	SELECT DISTINCT INCIDENTE_TIPO
+	FROM LOS_QUERY.incidente
+  END
+GO
+
+IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_neumatico')
+	DROP PROCEDURE sp_bi_dim_tipo_neumatico
+GO
+
+CREATE PROCEDURE sp_bi_dim_tipo_neumatico
+ AS
+  BEGIN
+   INSERT INTO LOS_QUERY.BI_dim_tipo_neumatico (tipo_neumatico)
+	SELECT DISTINCT neumatico_tipo
+	FROM LOS_QUERY.neumatico
   END
 GO
 
@@ -649,6 +703,10 @@ CREATE PROCEDURE sp_migrar_tiempo_parada_auto
   END
 GO
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Creacion de procedimientos tablas de hechos--
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_parada_box')
 	DROP PROCEDURE sp_migrar_fact_parada_box
 GO
@@ -660,17 +718,48 @@ CREATE PROCEDURE sp_migrar_fact_parada_box
 	SELECT 
 		tiempo.codigo_tiempo, 
 		carrera.CARRERA_CIRCUITO_CODIGO, 
-		auto.auto_escuderia,
+		es.escuderia_nombre,
 		PARADA_CODIGO, 
 		PARADA_DURACION
 	FROM LOS_QUERY.parada_box
 		JOIN LOS_QUERY.carrera ON parada_box.PARADA_CODIGO_CARRERA = carrera.CODIGO_CARRERA
+		JOIN LOS_QUERY.auto a ON parada_box.PARADA_AUTO_NUMERO = a.auto_numero
+		    AND  a.auto_modelo = parada_box.PARADA_AUTO_MODELO
 	    JOIN LOS_QUERY.BI_dim_tiempos tiempo ON YEAR(carrera.CARRERA_FECHA) = tiempo.anio
-		    AND LOS_QUERY.get_cuatrimestre(carrera.CARRERA_FECHA) = tiempo.cuatrimestre
-	    JOIN LOS_QUERY.auto ON parada_box.PARADA_AUTO_NUMERO = auto.auto_numero
-		    AND parada_box.PARADA_AUTO_MODELO = auto.auto_modelo
+			AND LOS_QUERY.get_cuatrimestre(carrera.CARRERA_FECHA) = tiempo.cuatrimestre
+		JOIN LOS_QUERY.BI_dim_escuderia es ON es.escuderia_nombre = a.auto_escuderia
   END
 GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_incidentes')
+	DROP PROCEDURE sp_migrar_fact_incidentes
+GO
+
+CREATE PROCEDURE sp_migrar_fact_incidentes
+ AS
+  BEGIN
+	INSERT INTO LOS_QUERY.BI_fact_incidentes(circuito_codigo, escuderia_nombre, codigo_sector, codigo_tiempo, cant_inc, codigo_tipo_incidente, codigo_tipo_sector)
+		SELECT
+		    cir.CIRCUITO_CODIGO,
+			a.auto_escuderia as Escuderia, 
+			i.INCIDENTE_CODIGO_SECTOR as Sector_Incidente, 
+			t.codigo_tiempo as Codigo_Tiempo,
+			COUNT(i.INCIDENTE_CODIGO) as Cant_Inc, 
+			ti.codigo_tipo_incidente as Tipo_Incidente,
+			ts.codigo_tipo_sector as Tipo_Sector
+		FROM LOS_QUERY.auto_por_incidente api
+		    JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
+			JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA
+			JOIN LOS_QUERY.BI_dim_circuito cir ON cir.CIRCUITO_CODIGO = c.CARRERA_CIRCUITO_CODIGO 	
+			JOIN LOS_QUERY.auto a ON  api.auto_incidente_numero = a.auto_numero and api.auto_incidente_modelo =  a.auto_modelo
+			JOIN LOS_QUERY.BI_dim_tiempos t ON YEAR(c.CARRERA_FECHA) = t.anio AND LOS_QUERY.get_cuatrimestre(c.CARRERA_FECHA) = t.cuatrimestre
+			JOIN LOS_QUERY.sector s ON i.INCIDENTE_CODIGO_SECTOR = s.CODIGO_SECTOR
+			JOIN LOS_QUERY.BI_dim_tipo_sector ts ON ts.tipo_sector = s.SECTOR_TIPO
+			JOIN LOS_QUERY.BI_dim_tipo_incidentes ti ON ti.tipo_incidente = i.INCIDENTE_TIPO
+		GROUP BY cir.CIRCUITO_CODIGO, a.auto_escuderia, i.INCIDENTE_CODIGO_SECTOR, t.codigo_tiempo, ti.codigo_tipo_incidente, ts.codigo_tipo_sector
+  END
+GO
+
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_consumo_por_circuito')
 	DROP PROCEDURE sp_migrar_consumo_por_circuito
@@ -689,57 +778,6 @@ CREATE PROCEDURE sp_migrar_consumo_por_circuito
 GO
 
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_dim_tiempos')
-	DROP PROCEDURE sp_migrar_dim_tiempos
-GO
-
-CREATE PROCEDURE sp_migrar_dim_tiempos AS
-    BEGIN
-        INSERT INTO LOS_QUERY.BI_dim_tiempos(anio, cuatrimestre)
-           SELECT DISTINCT YEAR(c.CARRERA_FECHA), LOS_QUERY.get_cuatrimestre(CARRERA_FECHA)
-		   FROM LOS_QUERY.carrera c
-		   ORDER BY 1,2
-    END
-GO
-
-IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_sector')
-	DROP PROCEDURE sp_bi_dim_tipo_sector
-GO
-
-CREATE PROCEDURE sp_bi_dim_tipo_sector
- AS
-  BEGIN
-   INSERT INTO LOS_QUERY.BI_dim_tipo_sector (tipo_sector)
-	SELECT DISTINCT SECTOR_TIPO
-	FROM LOS_QUERY.sector
-  END
-GO
-
-IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_incidentes')
-	DROP PROCEDURE sp_bi_dim_tipo_incidentes
-GO
-
-CREATE PROCEDURE sp_bi_dim_tipo_incidentes
- AS
-  BEGIN
-   INSERT INTO LOS_QUERY.BI_dim_tipo_incidentes (tipo_incidente)
-	SELECT DISTINCT INCIDENTE_TIPO
-	FROM LOS_QUERY.incidente
-  END
-GO
-
-IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_neumatico')
-	DROP PROCEDURE sp_bi_dim_tipo_neumatico
-GO
-
-CREATE PROCEDURE sp_bi_dim_tipo_neumatico
- AS
-  BEGIN
-   INSERT INTO LOS_QUERY.BI_dim_tipo_neumatico (tipo_neumatico)
-	SELECT DISTINCT neumatico_tipo
-	FROM LOS_QUERY.neumatico
-  END
-GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_velocidades_auto')
 	DROP PROCEDURE sp_migrar_velocidades_auto
@@ -763,36 +801,6 @@ CREATE PROCEDURE sp_migrar_velocidades_auto
 	END
   GO
 
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_incidentes')
-	DROP PROCEDURE sp_migrar_fact_incidentes
-GO
-
-CREATE PROCEDURE sp_migrar_fact_incidentes
- AS
-  BEGIN
-	INSERT INTO LOS_QUERY.BI_fact_incidentes(circuito_codigo, escuderia_nombre, codigo_sector, codigo_tiempo, cant_inc, codigo_tipo_incidente, codigo_tipo_sector)
-		SELECT
-		    cir.CIRCUITO_CODIGO,
-			a.auto_escuderia as Escuderia, 
-			i.INCIDENTE_CODIGO_SECTOR as Sector_Incidente, 
-			t.codigo_tiempo as Codigo_Tiempo,
-			COUNT(i.INCIDENTE_CODIGO) as Cant_Inc, --cuenta cuantos incidentes hubo en ese tipo de sector
-			ti.codigo_tipo_incidente as Tipo_Incidente,
-			ts.codigo_tipo_sector as Tipo_Sector
-		FROM LOS_QUERY.auto_por_incidente api
-		    JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
-			JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA
-			JOIN LOS_QUERY.BI_dim_circuito cir ON cir.CIRCUITO_CODIGO = c.CARRERA_CIRCUITO_CODIGO 	
-			JOIN LOS_QUERY.auto a ON  api.auto_incidente_numero = a.auto_numero and api.auto_incidente_modelo =  a.auto_modelo
-			JOIN LOS_QUERY.BI_dim_tiempos t ON YEAR(c.CARRERA_FECHA) = t.anio AND LOS_QUERY.get_cuatrimestre(c.CARRERA_FECHA) = t.cuatrimestre
-			JOIN LOS_QUERY.sector s ON i.INCIDENTE_CODIGO_SECTOR = s.CODIGO_SECTOR
-			JOIN LOS_QUERY.BI_dim_tipo_sector ts ON ts.tipo_sector = s.SECTOR_TIPO
-			JOIN LOS_QUERY.BI_dim_tipo_incidentes ti ON ti.tipo_incidente = i.INCIDENTE_TIPO
-		GROUP BY cir.CIRCUITO_CODIGO, a.auto_escuderia, i.INCIDENTE_CODIGO_SECTOR, t.codigo_tiempo, ti.codigo_tipo_incidente, ts.codigo_tipo_sector
-		ORDER BY 1,3
-  END
-GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
