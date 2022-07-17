@@ -49,9 +49,6 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_desgaste_neumatico')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_sector')
 	DROP TABLE LOS_QUERY.BI_dim_tipo_sector
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_neumatico')
-	DROP TABLE LOS_QUERY.BI_dim_tipo_neumatico
-
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_incidentes')
 	DROP TABLE LOS_QUERY.BI_dim_tipo_incidentes
 
@@ -109,10 +106,6 @@ CREATE TABLE LOS_QUERY.BI_dim_tipo_sector (
 	tipo_sector nvarchar(255),
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_tipo_neumatico (
-	codigo_tipo_neumatico int IDENTITY PRIMARY KEY, 
-	tipo_neumatico nvarchar(255),
-)
 
 CREATE TABLE LOS_QUERY.BI_dim_tipo_incidentes (
 	codigo_tipo_incidente int IDENTITY PRIMARY KEY, 
@@ -336,6 +329,7 @@ CREATE TABLE LOS_QUERY.BI_fact_parada_box (
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre)
 );
 
+--HECHO Vuelta_Carrera
 CREATE TABLE LOS_QUERY.BI_fact_sector_vuelta_carrera (
 	id int IDENTITY PRIMARY KEY,
 	auto_numero int, --FK
@@ -586,19 +580,6 @@ CREATE PROCEDURE sp_bi_dim_tipo_incidentes
    INSERT INTO LOS_QUERY.BI_dim_tipo_incidentes (tipo_incidente)
 	SELECT DISTINCT INCIDENTE_TIPO
 	FROM LOS_QUERY.incidente
-  END
-GO
-
-IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_neumatico')
-	DROP PROCEDURE sp_bi_dim_tipo_neumatico
-GO
-
-CREATE PROCEDURE sp_bi_dim_tipo_neumatico
- AS
-  BEGIN
-   INSERT INTO LOS_QUERY.BI_dim_tipo_neumatico (tipo_neumatico)
-	SELECT DISTINCT neumatico_tipo
-	FROM LOS_QUERY.neumatico
   END
 GO
 
@@ -1057,8 +1038,6 @@ CREATE VIEW LOS_QUERY.BI_vi_mejor_tiempo_vuelta AS
 	GROUP BY fact.escuderia_nombre, fact.circuito_codigo, t.codigo_tiempo
 GO
 
-SELECT * FROM LOS_QUERY.BI_vi_mejor_tiempo_vuelta
-
 -- ITEM 3
 -- "Los 3 de circuitos con mayor consumo de combustible promedio"
 
@@ -1222,6 +1201,7 @@ GO
 	EXECUTE sp_migrar_fact_parada_box 
 	EXECUTE sp_migrar_fact_incidentes
 	EXECUTE sp_migrar_BI_tiempo_vuelta_escuderia
+    EXECUTE sp_migrar_fact_sector_vuelta_carrera
 END TRY
 BEGIN CATCH
      ROLLBACK TRANSACTION;
@@ -1249,6 +1229,7 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_tipo_neumatico)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_fact_parada_box)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_fact_incidentes)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_fact_sector_vuelta_carrera)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_parada_auto)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_velocidades_auto)
 
