@@ -3,8 +3,9 @@ USE GD1C2022
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas dimensionales --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_sector_vuelta_carrera')
-	DROP TABLE LOS_QUERY.BI_fact_sector_vuelta_carrera
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'LOS_QUERY.BI_fact_incidentes')
+	DROP TABLE LOS_QUERY.BI_fact_incidentes
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_paradas_circuito')
 	DROP TABLE LOS_QUERY.BI_tiempo_paradas_circuito
@@ -30,11 +31,11 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_consumo_por_circuito')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_parada_auto')
 	DROP TABLE LOS_QUERY.BI_tiempo_parada_auto
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_incidentes_por_escuderia')
-	DROP TABLE LOS_QUERY.BI_incidentes_por_escuderia
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_parada_box')
+	DROP TABLE LOS_QUERY.BI_fact_parada_box
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_hechos_parada_box')
-	DROP TABLE LOS_QUERY.BI_hechos_parada_box
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_incidentes')
+	DROP TABLE LOS_QUERY.BI_fact_incidentes
 	
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_desgaste_motor')
 	DROP TABLE LOS_QUERY.BI_desgaste_motor
@@ -44,6 +45,15 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_desgaste_frenos')
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_desgaste_neumatico')
 	DROP TABLE LOS_QUERY.BI_desgaste_neumatico
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_sector')
+	DROP TABLE LOS_QUERY.BI_dim_tipo_sector
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_neumatico')
+	DROP TABLE LOS_QUERY.BI_dim_tipo_neumatico
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_incidentes')
+	DROP TABLE LOS_QUERY.BI_dim_tipo_incidentes
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_motor')
 	DROP TABLE LOS_QUERY.BI_dim_motor
@@ -84,19 +94,29 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_caja')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_escuderia')
 	DROP TABLE LOS_QUERY.BI_dim_escuderia
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_sector')
-	DROP TABLE LOS_QUERY.BI_dim_tipo_sector
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_carrera')
+	DROP TABLE LOS_QUERY.BI_dim_carrera
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_neumatico')
-	DROP TABLE LOS_QUERY.BI_dim_tipo_neumatico
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_dim_tipo_incidentes')
-	DROP TABLE LOS_QUERY.BI_dim_tipo_incidentes
 
 CREATE TABLE LOS_QUERY.BI_dim_tiempos (
 	codigo_tiempo int IDENTITY PRIMARY KEY,
 	anio int,
 	cuatrimestre int not null
+)
+
+CREATE TABLE LOS_QUERY.BI_dim_tipo_sector (
+	codigo_tipo_sector int IDENTITY PRIMARY KEY, 
+	tipo_sector nvarchar(255),
+)
+
+CREATE TABLE LOS_QUERY.BI_dim_tipo_neumatico (
+	codigo_tipo_neumatico int IDENTITY PRIMARY KEY, 
+	tipo_neumatico nvarchar(255),
+)
+
+CREATE TABLE LOS_QUERY.BI_dim_tipo_incidentes (
+	codigo_tipo_incidente int IDENTITY PRIMARY KEY, 
+	tipo_incidente nvarchar(255),
 )
 
 CREATE TABLE LOS_QUERY.BI_dim_caja (
@@ -142,7 +162,6 @@ CREATE TABLE LOS_QUERY.BI_dim_auto (
 	FOREIGN KEY (escuderia) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre)
 )
 
--- para mi esta re al pedo pq no lo usamos nunca en las vistas pero bueno, lo pide ahi
 CREATE TABLE LOS_QUERY.BI_dim_piloto (
 	piloto_nombre VARCHAR(50),
 	piloto_apellido VARCHAR(50),
@@ -161,8 +180,6 @@ CREATE TABLE LOS_QUERY.BI_dim_neumatico (
 	neumatico_tipo VARCHAR(255)
 )
 
---tablas dimensionales extra
-
 CREATE TABLE LOS_QUERY.BI_dim_freno (
 	FRENO_NRO_SERIE varchar(255) PRIMARY KEY,
 	FRENO_POSICION varchar(255) not null,
@@ -174,128 +191,89 @@ CREATE TABLE LOS_QUERY.BI_dim_motor (
 	motor_modelo VARCHAR(255) not null
 )
 
-CREATE TABLE LOS_QUERY.BI_dim_tipo_sector (
-	codigo_tipo_sector int IDENTITY PRIMARY KEY, 
-	tipo_sector nvarchar(255),
-)
-
-CREATE TABLE LOS_QUERY.BI_dim_tipo_neumatico (
-	codigo_tipo_neumatico int IDENTITY PRIMARY KEY, 
-	tipo_neumatico nvarchar(255),
-)
-
-CREATE TABLE LOS_QUERY.BI_dim_tipo_incidentes (
-	codigo_tipo_incidentes int IDENTITY PRIMARY KEY, 
-	tipo_incidente nvarchar(255),
+CREATE TABLE LOS_QUERY.BI_dim_carrera (
+    CODIGO_CARRERA int,
+	CARRERA_CIRCUITO_CODIGO int not null,
+	PRIMARY KEY (CODIGO_CARRERA),
+	FOREIGN KEY (CARRERA_CIRCUITO_CODIGO) REFERENCES LOS_QUERY.circuito(CIRCUITO_CODIGO)
 )
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas de hechos para el armado de las vistas --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-CREATE TABLE LOS_QUERY.BI_fact_sector_vuelta_carrera (
-	id int IDENTITY PRIMARY KEY,
-	auto_numero int, --FK
-	auto_modelo VARCHAR(255), --FK
-	escuderia_nombre VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
-	vuelta decimal(18,0),
+
+CREATE TABLE LOS_QUERY.BI_tiempo_vuelta_escuderia (
+	escuderia_nombre VARCHAR(255),
+	numero_vuelta decimal(18,0),
 	tiempo_vuelta decimal(18,10),
-	velocidad decimal(18,2),
-	consumo_combustible int,
-	circuito_codigo int FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
-	carrera_codigo int,
-	sector_codigo int FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector),
-	sector_tipo varchar(255),
-	codigo_tiempo int FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo),
-
-	neumatico1_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_neumatico(neumatico_nro_serie),
-	neumatico1_desgaste decimal(18,6),
-	neumatico2_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_neumatico(neumatico_nro_serie),
-	neumatico2_desgaste decimal(18,6),
-	neumatico3_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_neumatico(neumatico_nro_serie),
-	neumatico3_desgaste decimal(18,6),
-	neumatico4_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_neumatico(neumatico_nro_serie),
-	neumatico4_desgaste decimal(18,6),
-
-	freno1_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_freno(FRENO_NRO_SERIE),
-	freno1_desgaste decimal(18,6),
-	freno2_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_freno(FRENO_NRO_SERIE),
-	freno2_desgaste decimal(18,6),
-	freno3_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_freno(FRENO_NRO_SERIE),
-	freno3_desgaste decimal(18,6),
-	freno4_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_freno(FRENO_NRO_SERIE),
-	freno4_desgaste decimal(18,6),
-
-	motor_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_motor(motor_nro_serie),
-	motor_desgaste decimal(18,6),
-	caja_nro_serie VARCHAR(255) FOREIGN KEY REFERENCES LOS_QUERY.BI_dim_caja(caja_nro_serie),
-	caja_desgaste decimal(18,6),
-
-	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo)
+	auto_numero int,
+	auto_modelo varchar(255),
+	CODIGO_CARRERA int,
+	CIRCUITO_CODIGO int,
+	codigo_tiempo int, 
+	PRIMARY KEY(escuderia_nombre, numero_vuelta, circuito_codigo, codigo_tiempo, auto_numero, auto_modelo),
+	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
+	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
+	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
+	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
 );
 
-/*
-esta tabla contendria el tiempo de todas las paradas que hizo un auto, habria que despues calcularle el promedio 
-al auto y desp para obtener el promedio de la escuderia habria que hacer el promedio de todos los autos que 
-pertenezcan a la misma
-seguro se pueda implementar mejor, esta es solo una idea
-desp se me ocurrio agregarle el circuito a esta tabla para poder a partir de esta tabla contar la cantidad de 
-paradas por escuderia en cada circuito
-tb desp a partir de esta tabla se puede ordenar por tiempo y obtener los circuitos donde hay paradas mas largas
-*/
+CREATE TABLE LOS_QUERY.BI_consumo_por_circuito (
+	ciruito_codigo int PRIMARY KEY,
+	consumo_combustible int, 
+	FOREIGN KEY (ciruito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
+);
+
+
+CREATE TABLE LOS_QUERY.BI_velocidades_auto (
+	auto_numero int,
+	auto_modelo VARCHAR(255),
+	velocidad decimal(18,2), 
+	ciruito_codigo int,
+	codigo_sector int,
+	sector_tipo varchar(255),
+	PRIMARY KEY(auto_numero, auto_modelo, ciruito_codigo, codigo_sector),
+	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
+	FOREIGN KEY (ciruito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
+	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector)
+);
+
 CREATE TABLE LOS_QUERY.BI_tiempo_parada_auto (
-	--no se cual seria la clave primaria de la parada en el otro script
 	id int IDENTITY(1,1) PRIMARY KEY,
 	auto_numero int,
 	auto_modelo VARCHAR(255),
-	duracion_parada decimal, --se obtiene a partir de la tabla parada box del script inicial
-	cuatrimestre int, --se obtiene haciendo un join con la tabla de carrera ya que ahi esta la fecha de la misma, podemos hacer una funcion para obtener el cuatri
-	circuito_codigo int, --tb se obtiene de la carrera
+	duracion_parada decimal, 
+	cuatrimestre int, 
+	circuito_codigo int, 
 	FOREIGN KEY (auto_numero, auto_modelo) REFERENCES LOS_QUERY.BI_dim_auto(auto_numero, auto_modelo),
 	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
 );
 
---creo esta para el item 7 porque no entendi como funciona lo de la tabla de arriba con cuatrimestres
-CREATE TABLE LOS_QUERY.BI_tiempo_paradas_circuito (
-	circuito_codigo int PRIMARY KEY,
-	tiempo_parada_box decimal
-	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO)
-);
-
---apartir de esta tabla habria que hacer el promedio por sector para cada escuderia (entiendo que quieren saber cant de incidentes por año)
-CREATE TABLE LOS_QUERY.BI_incidentes_por_escuderia (
-	--le pondria un id como clave primaria
-	id int IDENTITY(1,1) PRIMARY KEY,
-	escuderia_nombre VARCHAR(255),
-	codigo_sector int,
-	codigo_tiempo int,
-	cant_inc int,
-	tipo_sector varchar(255),
-	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
-	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector),
-	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
-);
-
 --HECHO Incidentes
-CREATE TABLE LOS_QUERY.BI_hechos_incidentes (
+CREATE TABLE LOS_QUERY.BI_fact_incidentes (
     id int NOT NULL IDENTITY PRIMARY KEY,
+	circuito_codigo int,
 	escuderia_nombre VARCHAR(255),
 	codigo_sector int,
 	codigo_tiempo int,
 	cant_inc int,
-	tipo_sector varchar(255),
+    codigo_tipo_incidente int,
+	codigo_tipo_sector int,
+	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre),
 	FOREIGN KEY (codigo_sector) REFERENCES LOS_QUERY.BI_dim_sector(codigo_sector),
-	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo)
+	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo),
+	FOREIGN KEY (codigo_tipo_incidente) REFERENCES LOS_QUERY.BI_dim_tipo_incidentes(codigo_tipo_incidente),
+	FOREIGN KEY (codigo_tipo_sector) REFERENCES LOS_QUERY.BI_dim_tipo_sector(codigo_tipo_sector)
 )
 
---HECHO Parada Box
-CREATE TABLE LOS_QUERY.BI_hechos_parada_box (
-    id int NOT NULL IDENTITY,
+--HECHO Parada_Box
+CREATE TABLE LOS_QUERY.BI_fact_parada_box (
     codigo_tiempo int,
 	circuito_codigo int,
 	escuderia_nombre varchar(255),
+	codigo_parada int,
 	duracion_parada decimal(18,2),
-	PRIMARY KEY (id),
 	FOREIGN KEY (codigo_tiempo) REFERENCES LOS_QUERY.BI_dim_tiempos(codigo_tiempo),
 	FOREIGN KEY (circuito_codigo) REFERENCES LOS_QUERY.BI_dim_circuito(CIRCUITO_CODIGO),
 	FOREIGN KEY (escuderia_nombre) REFERENCES LOS_QUERY.BI_dim_escuderia(escuderia_nombre)
@@ -309,7 +287,6 @@ IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_cuatrimestre')
 	DROP FUNCTION LOS_QUERY.get_cuatrimestre
 GO
 
---Podria hacerse con un switch case pero solo esta disponible en versiones de sqlserver mas recientes
 CREATE FUNCTION LOS_QUERY.get_cuatrimestre(@fecha DATE)
 	RETURNS INT
 	AS
@@ -474,236 +451,6 @@ CREATE PROCEDURE sp_bi_dim_piloto
   END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_desgaste_x_vuelta_neumatico')
-	DROP PROCEDURE sp_migrar_fact_desgaste_x_vuelta_neumatico
-GO
-
-CREATE PROCEDURE sp_migrar_fact_sector_vuelta_carrera
- AS
-  BEGIN
-	INSERT INTO LOS_QUERY.BI_fact_sector_vuelta_carrera (
-		auto_numero, auto_modelo, escuderia_nombre, vuelta,	tiempo_vuelta, velocidad, consumo_combustible, circuito_codigo, 
-		carrera_codigo, sector_codigo, sector_tipo, codigo_tiempo, neumatico1_nro_serie, neumatico1_desgaste, neumatico2_nro_serie, neumatico2_desgaste, 
-		neumatico3_nro_serie, neumatico3_desgaste, neumatico4_nro_serie, neumatico4_desgaste, freno1_nro_serie, freno1_desgaste, freno2_nro_serie, freno2_desgaste, 
-		freno3_nro_serie, freno3_desgaste, freno4_nro_serie, freno4_desgaste, motor_nro_serie, motor_desgaste, caja_nro_serie, caja_desgaste
-	)
-	SELECT
-		ta.tele_auto_numero, 
-		ta.tele_auto_modelo,
-		auto.auto_escuderia, --escuderia_nombre
-		ta.tele_numero_vuelta,
-		ta.tele_tiempo_vuelta,
-		MAX(ta.tele_auto_velocidad),
-		MAX(ta.tele_auto_combustible) - MIN(ta.tele_auto_combustible), --consumo_combustible_x_sector
-		ca.CARRERA_CIRCUITO_CODIGO,
-		ca.CODIGO_CARRERA,
-		ta.tele_codigo_sector,
-		se.SECTOR_TIPO,
-		tiempo.codigo_tiempo,
-
-		mn1.tele_neumatico_nro_serie,
-		MAX(mn1.tele_neumatico_profundidad) - MIN(mn1.tele_neumatico_profundidad), --desgaste_neumatico_1
-		mn2.tele_neumatico_nro_serie,
-		MAX(mn2.tele_neumatico_profundidad) - MIN(mn2.tele_neumatico_profundidad), --desgaste_neumatico_2
-		mn3.tele_neumatico_nro_serie,
-		MAX(mn3.tele_neumatico_profundidad) - MIN(mn3.tele_neumatico_profundidad), --desgaste_neumatico_3
-		mn4.tele_neumatico_nro_serie,
-		MAX(mn4.tele_neumatico_profundidad) - MIN(mn4.tele_neumatico_profundidad), --desgaste_neumatico_4
-
-		fm1.TELE_FRENO_NRO_SERIE,
-		MAX(fm1.TELE_FRENO_GROSOR_PASTILLA) - MIN(fm1.TELE_FRENO_GROSOR_PASTILLA), --desgaste_freno_1
-		fm2.TELE_FRENO_NRO_SERIE,
-		MAX(fm2.TELE_FRENO_GROSOR_PASTILLA) - MIN(fm2.TELE_FRENO_GROSOR_PASTILLA), --desgaste_freno_2
-		fm3.TELE_FRENO_NRO_SERIE,
-		MAX(fm3.TELE_FRENO_GROSOR_PASTILLA) - MIN(fm3.TELE_FRENO_GROSOR_PASTILLA), --desgaste_freno_3
-		fm4.TELE_FRENO_NRO_SERIE,
-		MAX(fm4.TELE_FRENO_GROSOR_PASTILLA) - MIN(fm4.TELE_FRENO_GROSOR_PASTILLA), --desgaste_freno_4
-
-		tm.tele_motor_nro_serie,
-		MAX(tm.tele_motor_potencia) - MIN(tm.tele_motor_potencia), --desgaste_motor
-
-		tc.tele_caja_nro_serie,
-		MAX(tc.tele_caja_desgaste) - MIN(tc.tele_caja_desgaste) --desgaste_caja
-	FROM LOS_QUERY.telemetria_auto ta
-		JOIN LOS_QUERY.auto auto ON ta.tele_auto_numero = auto.auto_numero AND ta.tele_auto_modelo = auto.auto_modelo
-		JOIN LOS_QUERY.carrera ca ON ca.CODIGO_CARRERA = ta.tele_codigo_carrera
-		JOIN LOS_QUERY.sector se ON se.CODIGO_SECTOR = ta.tele_codigo_sector
-		JOIN LOS_QUERY.BI_dim_tiempos tiempo ON YEAR(ca.CARRERA_FECHA) = tiempo.anio AND LOS_QUERY.get_cuatrimestre(ca.CARRERA_FECHA) = tiempo.cuatrimestre
-		
-		JOIN LOS_QUERY.medicion_por_neumatico mn1 ON mn1.tele_auto_codigo = ta.tele_auto_codigo AND 
-			(	SELECT TOP 1 n1.neumatico_posicion 
-				FROM LOS_QUERY.neumatico n1
-				WHERE n1.neumatico_nro_serie = mn1.tele_neumatico_nro_serie
-			) = 'Delantero Izquierdo'
-
-		JOIN LOS_QUERY.medicion_por_neumatico mn2 ON mn2.tele_auto_codigo = ta.tele_auto_codigo AND 
-			(	SELECT TOP 1 n2.neumatico_posicion 
-				FROM LOS_QUERY.neumatico n2
-				WHERE n2.neumatico_nro_serie = mn2.tele_neumatico_nro_serie
-			) = 'Delantero Derecho'
-
-		JOIN LOS_QUERY.medicion_por_neumatico mn3 ON mn3.tele_auto_codigo = ta.tele_auto_codigo AND 
-			(	SELECT TOP 1 n3.neumatico_posicion 
-				FROM LOS_QUERY.neumatico n3
-				WHERE n3.neumatico_nro_serie = mn3.tele_neumatico_nro_serie
-			) = 'Trasero Izquierdo'
-
-		JOIN LOS_QUERY.medicion_por_neumatico mn4 ON mn4.tele_auto_codigo = ta.tele_auto_codigo AND 
-			(	SELECT TOP 1 n4.neumatico_posicion 
-				FROM LOS_QUERY.neumatico n4
-				WHERE n4.neumatico_nro_serie = mn4.tele_neumatico_nro_serie
-			) = 'Trasero Derecho'
-
-		JOIN LOS_QUERY.frenos_por_medicion fm1 ON fm1.AUTO_CODIGO = ta.tele_auto_codigo AND 
-			(	SELECT TOP 1 f1.FRENO_POSICION 
-				FROM LOS_QUERY.freno f1
-				WHERE f1.FRENO_NRO_SERIE = fm1.TELE_FRENO_NRO_SERIE
-			) = 'Delantero Izquierdo'
-
-		JOIN LOS_QUERY.frenos_por_medicion fm2 ON fm2.AUTO_CODIGO = ta.tele_auto_codigo AND 
-			(	SELECT TOP 1 f2.FRENO_POSICION 
-				FROM LOS_QUERY.freno f2
-				WHERE f2.FRENO_NRO_SERIE = fm2.TELE_FRENO_NRO_SERIE
-			) = 'Delantero Derecho'
-
-		JOIN LOS_QUERY.frenos_por_medicion fm3 ON fm3.AUTO_CODIGO = ta.tele_auto_codigo AND 
-			(	SELECT TOP 1 f3.FRENO_POSICION 
-				FROM LOS_QUERY.freno f3
-				WHERE f3.FRENO_NRO_SERIE = fm3.TELE_FRENO_NRO_SERIE
-			) = 'Trasero Izquierdo'
-
-		JOIN LOS_QUERY.frenos_por_medicion fm4 ON fm4.AUTO_CODIGO = ta.tele_auto_codigo AND 
-			(	SELECT TOP 1 f4.FRENO_POSICION 
-				FROM LOS_QUERY.freno f4
-				WHERE f4.FRENO_NRO_SERIE = fm4.TELE_FRENO_NRO_SERIE
-			) = 'Trasero Derecho'
-
-		JOIN LOS_QUERY.telemetria_motor tm ON tm.tele_motor_telemetria = ta.tele_auto_codigo
-		JOIN LOS_QUERY.telemetria_caja tc ON tc.tele_caja_codigo = ta.tele_auto_codigo
-		
-		GROUP BY 
-			ta.tele_auto_numero, 
-			ta.tele_auto_modelo,
-			auto.auto_escuderia,
-			ta.tele_numero_vuelta,
-			ta.tele_tiempo_vuelta,
-			ca.CARRERA_CIRCUITO_CODIGO,
-			ca.CODIGO_CARRERA,
-			ta.tele_codigo_sector,
-			se.SECTOR_TIPO,
-			tiempo.codigo_tiempo,
-			mn1.tele_neumatico_nro_serie,
-			mn2.tele_neumatico_nro_serie,
-			mn3.tele_neumatico_nro_serie,
-			mn4.tele_neumatico_nro_serie,
-			fm1.TELE_FRENO_NRO_SERIE,
-			fm2.TELE_FRENO_NRO_SERIE,
-			fm3.TELE_FRENO_NRO_SERIE,
-			fm4.TELE_FRENO_NRO_SERIE,
-			tm.tele_motor_nro_serie,
-			tc.tele_caja_nro_serie
-  END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_desgaste_x_vuelta_frenos')
-	DROP PROCEDURE sp_migrar_fact_desgaste_x_vuelta_frenos
-GO
-
-CREATE PROCEDURE sp_migrar_fact_desgaste_x_vuelta_frenos
- AS
-  BEGIN
-	INSERT INTO LOS_QUERY.BI_desgaste_x_vuelta_frenos(freno_nro_serie, auto_numero, auto_modelo,
-	desgaste,
-	vuelta, circuito_codigo)
-	SELECT 
-		fpm.TELE_FRENO_NRO_SERIE, 
-		ta.tele_auto_numero, 
-		ta.tele_auto_modelo, 
-		MAX(fpm.TELE_FRENO_GROSOR_PASTILLA) - MIN(fpm.TELE_FRENO_GROSOR_PASTILLA) as desgaste, 
-		ta.tele_numero_vuelta, 
-		ca.CARRERA_CIRCUITO_CODIGO
-	FROM LOS_QUERY.frenos_por_medicion fpm
-		JOIN LOS_QUERY.telemetria_auto ta on fpm.AUTO_CODIGO = ta.tele_auto_codigo
-		JOIN LOS_QUERY.carrera ca on ca.CODIGO_CARRERA = ta.tele_codigo_carrera
-	GROUP BY fpm.TELE_FRENO_NRO_SERIE, ta.tele_auto_numero, ta.tele_auto_modelo, ta.tele_numero_vuelta, ca.CARRERA_CIRCUITO_CODIGO
-	HAVING MAX(fpm.TELE_FRENO_GROSOR_PASTILLA) - MIN(fpm.TELE_FRENO_GROSOR_PASTILLA) <> 0
-  END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_desgaste_x_vuelta_motor')
-	DROP PROCEDURE sp_migrar_fact_desgaste_x_vuelta_motor
-GO
-
-CREATE PROCEDURE sp_migrar_fact_desgaste_x_vuelta_motor
- AS
-  BEGIN
-	INSERT INTO LOS_QUERY.BI_desgaste_x_vuelta_motor(motor_nro_serie, auto_numero, auto_modelo, desgaste, vuelta, circuito_codigo)
-	SELECT 
-		tm.tele_motor_nro_serie, 
-		ta.tele_auto_numero, 
-		ta.tele_auto_modelo, 
-		MAX(tm.tele_motor_potencia) - MIN(tm.tele_motor_potencia) as desgaste, 
-		ta.tele_numero_vuelta, 
-		ca.CARRERA_CIRCUITO_CODIGO
-	FROM LOS_QUERY.telemetria_motor tm 
-		JOIN LOS_QUERY.telemetria_auto ta on tm.tele_motor_telemetria = ta.tele_auto_codigo
-		JOIN LOS_QUERY.carrera ca on ca.CODIGO_CARRERA = ta.tele_codigo_carrera
-	GROUP BY tm.tele_motor_nro_serie, ta.tele_auto_numero, ta.tele_auto_modelo, ta.tele_numero_vuelta, ca.CARRERA_CIRCUITO_CODIGO
-	HAVING MAX(tm.tele_motor_potencia) - MIN(tm.tele_motor_potencia) <> 0
-  END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_desgaste_x_vuelta_caja')
-	DROP PROCEDURE sp_migrar_fact_desgaste_x_vuelta_caja
-GO
-
-CREATE PROCEDURE sp_migrar_fact_desgaste_x_vuelta_caja
- AS
-  BEGIN
-	INSERT INTO LOS_QUERY.BI_desgaste_x_vuelta_caja(caja_nro_serie, auto_numero, auto_modelo, desgaste, vuelta, circuito_codigo)
-	SELECT 
-		tc.tele_caja_nro_serie, 
-		ta.tele_auto_numero, 
-		ta.tele_auto_modelo, 
-		MAX(tc.tele_caja_desgaste) - MIN(tc.tele_caja_desgaste) as desgaste, 
-		ta.tele_numero_vuelta, 
-		ca.CARRERA_CIRCUITO_CODIGO
-	FROM LOS_QUERY.telemetria_caja tc
-		JOIN LOS_QUERY.telemetria_auto ta on tc.tele_caja_codigo = ta.tele_auto_codigo
-		JOIN LOS_QUERY.carrera ca on ca.CODIGO_CARRERA = ta.tele_codigo_carrera
-	GROUP BY tc.tele_caja_nro_serie, ta.tele_auto_numero, ta.tele_auto_modelo, ta.tele_numero_vuelta, ca.CARRERA_CIRCUITO_CODIGO
-	HAVING MAX(tc.tele_caja_desgaste) - MIN(tc.tele_caja_desgaste) <> 0
-  END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_BI_tiempo_vuelta_escuderia')
-	DROP PROCEDURE sp_migrar_BI_tiempo_vuelta_escuderia
-GO
-
-CREATE PROCEDURE sp_migrar_BI_tiempo_vuelta_escuderia
- AS
-  BEGIN
-	INSERT INTO LOS_QUERY.BI_tiempo_vuelta_escuderia(escuderia_nombre, auto_numero, auto_modelo,
-			CODIGO_CARRERA, CIRCUITO_CODIGO, codigo_tiempo, numero_vuelta, tiempo_vuelta)
-	SELECT esc.escuderia_nombre, au.auto_numero, au.auto_modelo,
-			car.CODIGO_CARRERA, circ.CIRCUITO_CODIGO, tiempo.codigo_tiempo,
-			tele.tele_numero_vuelta, MAX(tele.tele_tiempo_vuelta) as 'Tiempo vuelta'
-	FROM LOS_QUERY.telemetria_auto tele
-			JOIN LOS_QUERY.auto au on tele.tele_auto_numero = au.auto_numero and
-									  tele.tele_auto_modelo = au.auto_modelo
-			JOIN LOS_QUERY.ESCUDERIA esc on au.auto_escuderia = esc.escuderia_nombre
-			JOIN LOS_QUERY.carrera car ON tele.tele_codigo_carrera = car.CODIGO_CARRERA
-			JOIN LOS_QUERY.circuito circ on circ.CIRCUITO_CODIGO = car.CARRERA_CIRCUITO_CODIGO
-		    JOIN LOS_QUERY.BI_dim_tiempos tiempo ON YEAR(car.CARRERA_FECHA) = tiempo.anio AND
-			 						  LOS_QUERY.get_cuatrimestre(car.CARRERA_FECHA) = tiempo.cuatrimestre
-	WHERE tele.tele_tiempo_vuelta != 0
-	GROUP BY esc.escuderia_nombre, au.auto_numero, au.auto_modelo, car.CODIGO_CARRERA,
-			tele.tele_numero_vuelta, circ.CIRCUITO_CODIGO, tiempo.codigo_tiempo
-	ORDER BY 1,2,3,4,7
-  END
-GO
-
-
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_tiempo_parada_auto')
 	DROP PROCEDURE sp_migrar_tiempo_parada_auto
 GO
@@ -728,18 +475,19 @@ CREATE PROCEDURE sp_migrar_tiempo_parada_auto
   END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_hechos_parada_box')
-	DROP PROCEDURE sp_migrar_hechos_parada_box
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_parada_box')
+	DROP PROCEDURE sp_migrar_fact_parada_box
 GO
 
-CREATE PROCEDURE sp_migrar_hechos_parada_box
+CREATE PROCEDURE sp_migrar_fact_parada_box
  AS
   BEGIN
-    INSERT INTO LOS_QUERY.BI_hechos_parada_box(codigo_tiempo, circuito_codigo, escuderia_nombre, duracion_parada)
+    INSERT INTO LOS_QUERY.BI_fact_parada_box(codigo_tiempo, circuito_codigo, escuderia_nombre,codigo_parada, duracion_parada)
 	SELECT 
 		tiempo.codigo_tiempo, 
 		carrera.CARRERA_CIRCUITO_CODIGO, 
-		auto.auto_escuderia, 
+		auto.auto_escuderia,
+		PARADA_CODIGO, 
 		PARADA_DURACION
 	FROM LOS_QUERY.parada_box
 		JOIN LOS_QUERY.carrera ON parada_box.PARADA_CODIGO_CARRERA = carrera.CODIGO_CARRERA
@@ -766,48 +514,6 @@ CREATE PROCEDURE sp_migrar_consumo_por_circuito
   END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_tiempo_paradas_circuito')
-	DROP PROCEDURE sp_migrar_tiempo_paradas_circuito
-GO
-
-CREATE PROCEDURE sp_migrar_tiempo_paradas_circuito
-  AS
-    BEGIN
-	  INSERT INTO LOS_QUERY.BI_tiempo_paradas_circuito(circuito_codigo, tiempo_parada_box)
-		SELECT
-			c.CARRERA_CIRCUITO_CODIGO, 
-			SUM(p.PARADA_DURACION)
-		FROM LOS_QUERY.parada_box p 
-			JOIN LOS_QUERY.carrera c ON c.CODIGO_CARRERA = p.PARADA_CODIGO_CARRERA
-		GROUP BY c.CARRERA_CIRCUITO_CODIGO  
-	END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_incidentes_por_escuderia')
-	DROP PROCEDURE sp_migrar_incidentes_por_escuderia
-GO
-
-CREATE PROCEDURE sp_migrar_incidentes_por_escuderia
- AS
-  BEGIN
-	INSERT INTO LOS_QUERY.BI_incidentes_por_escuderia(escuderia_nombre, codigo_sector, codigo_tiempo, cant_inc, tipo_sector)
-		SELECT
-			a.auto_escuderia as Escuderia, 
-			i.INCIDENTE_CODIGO_SECTOR as Sector_Incidente, 
-			t.codigo_tiempo as Codigo_Tiempo,
-			COUNT(i.INCIDENTE_CODIGO) as Cant_Inc, --cuenta cuantos incidentes hubo en ese tipo de sector
-			s.SECTOR_TIPO as Tipo_Sector
-		FROM LOS_QUERY.auto_por_incidente api
-		    JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
-			JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA 	
-			JOIN LOS_QUERY.auto a ON  api.auto_incidente_numero = a.auto_numero and api.auto_incidente_modelo =  a.auto_modelo
-			JOIN LOS_QUERY.BI_dim_tiempos t ON YEAR(c.CARRERA_FECHA) = t.anio AND LOS_QUERY.get_cuatrimestre(c.CARRERA_FECHA) = t.cuatrimestre
-			JOIN LOS_QUERY.sector s ON i.INCIDENTE_CODIGO_SECTOR = s.CODIGO_SECTOR
-		GROUP BY a.auto_escuderia, i.INCIDENTE_CODIGO_SECTOR, s.SECTOR_TIPO, t.codigo_tiempo
-		ORDER BY 1,3
-  END
-GO
-
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_dim_tiempos')
 	DROP PROCEDURE sp_migrar_dim_tiempos
 GO
@@ -819,6 +525,45 @@ CREATE PROCEDURE sp_migrar_dim_tiempos AS
 		   FROM LOS_QUERY.carrera c
 		   ORDER BY 1,2
     END
+GO
+
+IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_sector')
+	DROP PROCEDURE sp_bi_dim_tipo_sector
+GO
+
+CREATE PROCEDURE sp_bi_dim_tipo_sector
+ AS
+  BEGIN
+   INSERT INTO LOS_QUERY.BI_dim_tipo_sector (tipo_sector)
+	SELECT DISTINCT SECTOR_TIPO
+	FROM LOS_QUERY.sector
+  END
+GO
+
+IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_incidentes')
+	DROP PROCEDURE sp_bi_dim_tipo_incidentes
+GO
+
+CREATE PROCEDURE sp_bi_dim_tipo_incidentes
+ AS
+  BEGIN
+   INSERT INTO LOS_QUERY.BI_dim_tipo_incidentes (tipo_incidente)
+	SELECT DISTINCT INCIDENTE_TIPO
+	FROM LOS_QUERY.incidente
+  END
+GO
+
+IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_neumatico')
+	DROP PROCEDURE sp_bi_dim_tipo_neumatico
+GO
+
+CREATE PROCEDURE sp_bi_dim_tipo_neumatico
+ AS
+  BEGIN
+   INSERT INTO LOS_QUERY.BI_dim_tipo_neumatico (tipo_neumatico)
+	SELECT DISTINCT neumatico_tipo
+	FROM LOS_QUERY.neumatico
+  END
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_velocidades_auto')
@@ -843,140 +588,47 @@ CREATE PROCEDURE sp_migrar_velocidades_auto
 	END
   GO
 
-IF EXISTS (SELECT [name] FROM sys.procedures WHERE [name] = 'sp_bi_dim_tipo_sector')
-	DROP PROCEDURE sp_bi_dim_tipo_sector
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_incidentes')
+	DROP PROCEDURE sp_migrar_fact_incidentes
 GO
 
-/*
-CREATE PROCEDURE sp_bi_dim_tipo_sector
+CREATE PROCEDURE sp_migrar_fact_incidentes
  AS
   BEGIN
-   INSERT INTO LOS_QUERY.BI_dim_tipo_sector (motor_nro_serie, motor_modelo)
-	SELECT DISTINCT motor_nro_serie, motor_modelo
-	FROM LOS_QUERY.motor
-	WHERE motor_nro_serie IS NOT NULL and motor_modelo IS NOT NULL 
+	INSERT INTO LOS_QUERY.BI_fact_incidentes(circuito_codigo, escuderia_nombre, codigo_sector, codigo_tiempo, cant_inc, codigo_tipo_incidente, codigo_tipo_sector)
+		SELECT
+		    cir.CIRCUITO_CODIGO,
+			a.auto_escuderia as Escuderia, 
+			i.INCIDENTE_CODIGO_SECTOR as Sector_Incidente, 
+			t.codigo_tiempo as Codigo_Tiempo,
+			COUNT(i.INCIDENTE_CODIGO) as Cant_Inc, --cuenta cuantos incidentes hubo en ese tipo de sector
+			ti.codigo_tipo_incidente as Tipo_Incidente,
+			ts.codigo_tipo_sector as Tipo_Sector
+		FROM LOS_QUERY.auto_por_incidente api
+		    JOIN LOS_QUERY.incidente i ON api.auto_incidente_id = i.INCIDENTE_CODIGO
+			JOIN LOS_QUERY.carrera c ON i.INCIDENTE_CODIGO_CARRERA = c.CODIGO_CARRERA
+			JOIN LOS_QUERY.BI_dim_circuito cir ON cir.CIRCUITO_CODIGO = c.CARRERA_CIRCUITO_CODIGO 	
+			JOIN LOS_QUERY.auto a ON  api.auto_incidente_numero = a.auto_numero and api.auto_incidente_modelo =  a.auto_modelo
+			JOIN LOS_QUERY.BI_dim_tiempos t ON YEAR(c.CARRERA_FECHA) = t.anio AND LOS_QUERY.get_cuatrimestre(c.CARRERA_FECHA) = t.cuatrimestre
+			JOIN LOS_QUERY.sector s ON i.INCIDENTE_CODIGO_SECTOR = s.CODIGO_SECTOR
+			JOIN LOS_QUERY.BI_dim_tipo_sector ts ON ts.tipo_sector = s.SECTOR_TIPO
+			JOIN LOS_QUERY.BI_dim_tipo_incidentes ti ON ti.tipo_incidente = i.INCIDENTE_TIPO
+		GROUP BY cir.CIRCUITO_CODIGO, a.auto_escuderia, i.INCIDENTE_CODIGO_SECTOR, t.codigo_tiempo, ti.codigo_tipo_incidente, ts.codigo_tipo_sector
+		ORDER BY 1,3
   END
 GO
-*/
 
-/*
-CREATE PROCEDURE sp_bi_dim_tipo_neumatico
- AS
-  BEGIN
-   INSERT INTO LOS_QUERY.BI_dim_tipo_neumatico (motor_nro_serie, motor_modelo)
-	SELECT DISTINCT motor_nro_serie, motor_modelo
-	FROM LOS_QUERY.motor
-	WHERE motor_nro_serie IS NOT NULL and motor_modelo IS NOT NULL 
-  END
-GO
-*/
-
-/*
-CREATE PROCEDURE sp_bi_dim_tipo_incidentes
- AS
-  BEGIN
-   INSERT INTO LOS_QUERY.BI_dim_tipo_incidentes (motor_nro_serie, motor_modelo)
-	SELECT DISTINCT motor_nro_serie, motor_modelo
-	FROM LOS_QUERY.motor
-	WHERE motor_nro_serie IS NOT NULL and motor_modelo IS NOT NULL 
-  END
-GO
-*/
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- ITEM 1
 -- "Desgaste promedio de cada componente de cada auto por vuelta por circuito"
 
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_desgaste_promedio_neumatico_x_auto_x_vuelta_x_circuito')
-	DROP VIEW LOS_QUERY.BI_desgaste_promedio_neumatico_x_auto_x_vuelta_x_circuito
-GO
 
-CREATE VIEW LOS_QUERY.BI_desgaste_promedio_neumatico_x_auto_x_vuelta_x_circuito AS
-	SELECT
-		dxv.auto_numero AS 'Auto Numero',
-		dxv.auto_modelo AS 'Auto Modelo',
-		dxv.circuito_codigo AS 'Circuito',
-		AVG(dxv.desgaste) AS 'Desgaste promedio por vuelta'
-	FROM LOS_QUERY.BI_desgaste_x_vuelta_neumatico dxv
-	GROUP BY dxv.auto_numero, dxv.auto_modelo, dxv.circuito_codigo
-GO
-
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_desgaste_promedio_frenos_x_auto_x_vuelta_x_circuito')
-	DROP VIEW LOS_QUERY.BI_desgaste_promedio_frenos_x_auto_x_vuelta_x_circuito
-GO
-
-CREATE VIEW LOS_QUERY.BI_desgaste_promedio_frenos_x_auto_x_vuelta_x_circuito AS
-	SELECT
-		dxv.auto_numero AS 'Auto Numero',
-		dxv.auto_modelo AS 'Auto Modelo',
-		dxv.circuito_codigo AS 'Circuito',
-		AVG(dxv.desgaste) AS 'Desgaste promedio por vuelta'
-	FROM LOS_QUERY.BI_desgaste_x_vuelta_frenos dxv
-	GROUP BY dxv.auto_numero, dxv.auto_modelo, dxv.circuito_codigo
-GO
-
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_desgaste_promedio_motor_x_auto_x_vuelta_x_circuito')
-	DROP VIEW LOS_QUERY.BI_desgaste_promedio_motor_x_auto_x_vuelta_x_circuito
-GO
-
-CREATE VIEW LOS_QUERY.BI_desgaste_promedio_motor_x_auto_x_vuelta_x_circuito AS
-	SELECT
-		dxv.auto_numero AS 'Auto Numero',
-		dxv.auto_modelo AS 'Auto Modelo',
-		dxv.circuito_codigo AS 'Circuito',
-		AVG(dxv.desgaste) AS 'Desgaste promedio por vuelta'
-	FROM LOS_QUERY.BI_desgaste_x_vuelta_motor dxv
-	GROUP BY dxv.auto_numero, dxv.auto_modelo, dxv.circuito_codigo
-GO
-
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_desgaste_promedio_caja_x_auto_x_vuelta_x_circuito')
-	DROP VIEW LOS_QUERY.BI_desgaste_promedio_caja_x_auto_x_vuelta_x_circuito
-GO
-
-CREATE VIEW LOS_QUERY.BI_desgaste_promedio_caja_x_auto_x_vuelta_x_circuito AS
-	SELECT
-		dxv.auto_numero AS 'Auto Numero',
-		dxv.auto_modelo AS 'Auto Modelo',
-		dxv.circuito_codigo AS 'Circuito',
-		AVG(dxv.desgaste) AS 'Desgaste promedio por vuelta'
-	FROM LOS_QUERY.BI_desgaste_x_vuelta_caja dxv
-	GROUP BY dxv.auto_numero, dxv.auto_modelo, dxv.circuito_codigo
-GO
-
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_desgaste_promedio_auto_x_auto_x_vuelta_x_circuito')
-	DROP VIEW LOS_QUERY.BI_desgaste_promedio_auto_x_auto_x_vuelta_x_circuito
-GO
-
-CREATE VIEW LOS_QUERY.BI_desgaste_promedio_auto_x_auto_x_vuelta_x_circuito AS
-	SELECT
-		ca.[Auto Numero] AS 'Auto Numero',
-		ca.[Auto Modelo] AS 'Auto Modelo',
-		ca.Circuito AS 'Circuito',
-		AVG(ca.[Desgaste promedio por vuelta]) AS 'Desgaste caja',
-		AVG(fr.[Desgaste promedio por vuelta]) AS 'Desgaste frenos',
-		AVG(mo.[Desgaste promedio por vuelta]) AS 'Desgaste motor',
-		AVG(ne.[Desgaste promedio por vuelta]) AS 'Desgaste neumaticos'
-
-	FROM LOS_QUERY.BI_desgaste_promedio_caja_x_auto_x_vuelta_x_circuito ca
-	JOIN LOS_QUERY.BI_desgaste_promedio_frenos_x_auto_x_vuelta_x_circuito fr on
-		fr.[Auto Modelo] = ca.[Auto Modelo] and
-		fr.[Auto Numero] = ca.[Auto Numero] and
-		fr.Circuito = ca.Circuito
-	JOIN LOS_QUERY.BI_desgaste_promedio_motor_x_auto_x_vuelta_x_circuito mo on
-		mo.[Auto Modelo] = ca.[Auto Modelo] and
-		mo.[Auto Numero] = ca.[Auto Numero] and
-		mo.Circuito = ca.Circuito
-	JOIN LOS_QUERY.BI_desgaste_promedio_neumatico_x_auto_x_vuelta_x_circuito ne on
-		ne.[Auto Modelo] = ca.[Auto Modelo] and
-		ne.[Auto Numero] = ca.[Auto Numero] and
-		ne.Circuito = ca.Circuito
-	GROUP BY ca.[Auto Modelo], ca.[Auto Numero], ca.Circuito
-GO
 
 -- ITEM 2
 -- "Mejor tiempo de vuelta de cada escudería por circuito por año"
--- Escuderia, circuito, anio, tiempo
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_vi_mejor_tiempo_vuelta')
 	DROP VIEW LOS_QUERY.BI_vi_mejor_tiempo_vuelta
@@ -1040,11 +692,12 @@ CREATE VIEW LOS_QUERY.BI_tiempo_promedio_por_escuderia AS
 	SELECT
 		e.escuderia_nombre AS 'Escuderia',
 		t.cuatrimestre AS 'Cuatrimestre',
+		t.anio AS 'Año',
 		AVG(p_box.duracion_parada) AS 'Tiempo promedio tardado en paradas'
-	FROM LOS_QUERY.BI_hechos_parada_box p_box
+	FROM LOS_QUERY.BI_fact_parada_box p_box
 		JOIN LOS_QUERY.BI_dim_escuderia e ON e.escuderia_nombre = p_box.escuderia_nombre
 		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    = p_box.codigo_tiempo
-	GROUP BY e.escuderia_nombre, t.cuatrimestre
+	GROUP BY e.escuderia_nombre, t.cuatrimestre, t.anio
 GO
 
 --ITEM 6
@@ -1056,11 +709,11 @@ GO
 
 CREATE VIEW LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio AS
 	SELECT
+		t.anio AS 'Año',
 		c.CIRCUITO_NOMBRE AS 'Circuito',
 		e.escuderia_nombre AS 'Escuderia',
-		t.anio AS 'Año',
-		count(*) AS 'Cantidad de Paradas'
-	FROM LOS_QUERY.BI_hechos_parada_box p_box
+		count(p_box.codigo_parada) AS 'Cantidad de Paradas'
+	FROM LOS_QUERY.BI_fact_parada_box p_box
 		JOIN LOS_QUERY.BI_dim_circuito c  ON c.CIRCUITO_CODIGO  = p_box.circuito_codigo
 		JOIN LOS_QUERY.BI_dim_escuderia e ON e.escuderia_nombre = p_box.escuderia_nombre
 		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    = p_box.codigo_tiempo
@@ -1075,31 +728,38 @@ IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_circuitos_mayor_tiempo
 GO
 
 CREATE VIEW LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box AS
-	SELECT
-		TOP 3 c.circuito_codigo AS 'Circuito',
-		c.tiempo_parada_box as 'Tiempo en Parada Box'
-	FROM LOS_QUERY.BI_tiempo_paradas_circuito c
-	ORDER BY 2 DESC
+	SELECT TOP 3
+		p_box.circuito_codigo AS 'Circuito',
+		SUM(p_box.duracion_parada) as 'Tiempo en Parada Box'
+	FROM LOS_QUERY.BI_fact_parada_box p_box
+	GROUP BY p_box.circuito_codigo
 GO
 
---ITEM 8
+--ITEM 8 
 --"Los 3 circuitos más peligrosos del año, en función mayor cantidad de incidentes"
+
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_circuitos_mas_peligrosos')
 	DROP VIEW LOS_QUERY.BI_circuitos_mas_peligrosos
 GO
 
 CREATE VIEW LOS_QUERY.BI_circuitos_mas_peligrosos AS
-	SELECT TOP 3 
-		ci.circuito_codigo AS 'Circuito',
-		COUNT(DISTINCT inc.incidente_codigo) AS 'Cantidad Incidentes'
-	FROM LOS_QUERY.BI_dim_circuito ci
-	JOIN LOS_QUERY.carrera ca on ci.CIRCUITO_CODIGO = ca.CARRERA_CIRCUITO_CODIGO
+WITH Circuitos_mas_peligrosos_del_anio AS(
+    SELECT
+	    t.anio Año,
+		MAX(hi.cant_inc) Maxima_cantidad_incidentes,
+		hi.circuito_codigo Codigo_Circuito, ROW_NUMBER() OVER (PARTITION BY t.anio ORDER BY t.anio) AS Fila 
+	FROM LOS_QUERY.BI_fact_incidentes hi
+	JOIN LOS_QUERY.carrera ca on ca.CARRERA_CIRCUITO_CODIGO = hi.CIRCUITO_CODIGO 
 	JOIN LOS_QUERY.BI_dim_incidente inc on inc.incidente_codigo_carrera = ca.CARRERA_CIRCUITO_CODIGO
-	GROUP BY ci.CIRCUITO_CODIGO
-	ORDER BY COUNT(DISTINCT inc.incidente_codigo) desc
+	JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    =  hi.codigo_tiempo
+	GROUP BY t.anio, hi.circuito_codigo
+)
+SELECT Año, Codigo_Circuito, Maxima_cantidad_incidentes
+FROM Circuitos_mas_peligrosos_del_anio
+WHERE Fila <= 3
 GO
 
---ITEM 9
+--ITEM 9 
 --"Promedio de incidentes que presenta cada escudería por año en los distintos tipo de sectores."
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'BI_prom_incidentes_escuderia_x_anio_x_tipo_sector')
 	DROP VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector
@@ -1107,14 +767,14 @@ GO
 
 CREATE VIEW LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector AS
 	SELECT 
-	  ixe.escuderia_nombre as 'Escuderia',
+	  hi.escuderia_nombre as 'Escuderia',
 	  t.anio as 'Anio_Incidente',
-	  s.sector_tipo as 'Tipo_Sector', 
-	  AVG(ixe.cant_inc) as 'Promedio'
-	FROM LOS_QUERY.BI_dim_sector s 
-		JOIN LOS_QUERY.BI_incidentes_por_escuderia ixe ON s.codigo_sector = ixe.codigo_sector
-		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    = ixe.codigo_tiempo
-	GROUP BY ixe.escuderia_nombre, s.SECTOR_TIPO, t.anio
+	  s.tipo_sector as 'Tipo_Sector', 
+	  AVG(hi.cant_inc) as 'Promedio'
+	FROM LOS_QUERY.BI_fact_incidentes hi
+		JOIN LOS_QUERY.BI_dim_tiempos t   ON t.codigo_tiempo    =  hi.codigo_tiempo
+		JOIN LOS_QUERY.BI_dim_tipo_sector s   ON s.codigo_tipo_sector  = hi.codigo_tipo_sector
+	GROUP BY hi.escuderia_nombre, s.tipo_sector, t.anio
 GO
 
 ---------------------------------------------------
@@ -1134,17 +794,15 @@ GO
 	EXECUTE sp_bi_dim_auto
 	EXECUTE sp_bi_dim_piloto
 	EXECUTE sp_migrar_dim_tiempos
+	EXECUTE sp_bi_dim_tipo_sector
+	EXECUTE sp_bi_dim_tipo_incidentes
+	EXECUTE sp_bi_dim_tipo_neumatico
 	
-	EXECUTE sp_migrar_fact_desgaste_x_vuelta_neumatico
-	EXECUTE sp_migrar_fact_desgaste_x_vuelta_frenos
-	EXECUTE sp_migrar_fact_desgaste_x_vuelta_motor
-	EXECUTE sp_migrar_fact_desgaste_x_vuelta_caja
 	EXECUTE sp_migrar_velocidades_auto
 	EXECUTE sp_migrar_consumo_por_circuito
-	EXECUTE sp_migrar_incidentes_por_escuderia
-	EXECUTE sp_migrar_tiempo_paradas_circuito
 	EXECUTE sp_migrar_tiempo_parada_auto
-	EXECUTE sp_migrar_hechos_parada_box
+	EXECUTE sp_migrar_fact_parada_box 
+	EXECUTE sp_migrar_fact_incidentes
 	EXECUTE sp_migrar_BI_tiempo_vuelta_escuderia
 END TRY
 BEGIN CATCH
@@ -1153,10 +811,6 @@ BEGIN CATCH
 END CATCH
 
 	IF (EXISTS (SELECT 1 FROM LOS_QUERY.BI_consumo_por_circuito)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_desgaste_x_vuelta_caja)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_desgaste_x_vuelta_frenos)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_desgaste_x_vuelta_motor)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_desgaste_x_vuelta_neumatico)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_auto)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_caja)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_circuito)
@@ -1167,13 +821,15 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_neumatico)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_piloto)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_sector)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_hechos_parada_box)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_incidentes_por_escuderia)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_parada_auto)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_paradas_circuito)
-	-- AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_vuelta_escuderia)
-	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_velocidades_auto)
 	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_tiempos)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_tipo_sector)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_tipo_incidentes)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_dim_tipo_neumatico)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_fact_parada_box)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_fact_incidentes)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_tiempo_parada_auto)
+	AND EXISTS (SELECT 1 FROM LOS_QUERY.BI_velocidades_auto)
+
 	)
    BEGIN
 	PRINT 'Tablas migradas correctamente.';
@@ -1199,16 +855,21 @@ GO
 -- SELECT * FROM LOS_QUERY.BI_vi_mejor_tiempo_vuelta
 
 --Item 3
--- SELECT * FROM LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible
+--SELECT * FROM LOS_QUERY.BI_circuitos_con_mayor_consumo_combustible
 
 --Item 5
  --SELECT * FROM LOS_QUERY.BI_tiempo_promedio_por_escuderia
 
+
 --Item 6
- --SELECT * FROM LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
+-- SELECT * FROM LOS_QUERY.BI_cant_paradas_x_circuito_x_escuderia_x_anio
 
 --Item 7
--- SELECT * FROM LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box
+--SELECT * FROM LOS_QUERY.BI_circuitos_mayor_tiempo_en_paradas_box
+
+--Item 8
+--SELECT * FROM LOS_QUERY.BI_circuitos_mas_peligrosos
 
 --Item 9
 --SELECT * FROM LOS_QUERY.BI_prom_incidentes_escuderia_x_anio_x_tipo_sector
+
