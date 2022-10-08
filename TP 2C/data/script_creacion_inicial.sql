@@ -53,6 +53,12 @@ DROP TABLE APROBADOS.compra
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'producto_por_compra')
 DROP TABLE APROBADOS.producto_por_compra
 
+---------------------------------------------------
+-- ELIMINACION DE VISTAS EN CASO DE QUE EXISTAN
+---------------------------------------------------
+
+
+
 --------------------------------------------------- 
 -- CREACION DE ESQUEMA
 ---------------------------------------------------
@@ -213,3 +219,25 @@ PRIMARY KEY (id_compra, id_producto)
 FOREIGN KEY (id_compra) REFERENCES APROBADOS.compra(id_compra),
 FOREIGN KEY (id_producto) REFERENCES APROBADOS.producto(id_producto)
 );
+
+----------------------------------------------------
+-- CREACIÓN DE VISTAS
+----------------------------------------------------
+
+
+
+---------------------------------------------------
+-- CREACION DE INDICES
+---------------------------------------------------
+
+
+
+---------------------------------------------------
+--CREACION DE STORE PROCEDURES
+---------------------------------------------------
+
+
+
+---------------------------------------------------
+-- MIGRACION A TRAVES DE PROCEDIMIENTOS
+---------------------------------------------------
