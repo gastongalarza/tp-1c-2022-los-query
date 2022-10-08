@@ -1,1 +1,0 @@
-# tp-1c-2022-los-query
