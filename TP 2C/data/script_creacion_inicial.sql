@@ -1,6 +1,58 @@
 --USE GD1C2022 --cambiar por la tabla de este TP
 GO
 
+---------------------------------------------------
+-- ELIMINACION DE TABLAS EN CASO DE QUE EXISTAN
+---------------------------------------------------
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cliente')
+DROP TABLE APROBADOS.cliente
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'canal')
+DROP TABLE APROBADOS.canal
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'envio')
+DROP TABLE APROBADOS.envio
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'medio_pago')
+DROP TABLE APROBADOS.medio_pago
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'venta')
+DROP TABLE APROBADOS.venta
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'descuento')
+DROP TABLE APROBADOS.descuento
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cupon')
+DROP TABLE APROBADOS.cupon
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cupon_por_venta')
+DROP TABLE APROBADOS.cupon_por_venta
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'categoria')
+DROP TABLE APROBADOS.categoria
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'tipo_variante')
+DROP TABLE APROBADOS.tipo_variante
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'variante')
+DROP TABLE APROBADOS.variante
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'producto')
+DROP TABLE APROBADOS.producto
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'producto_por_venta')
+DROP TABLE APROBADOS.producto_por_venta
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'proveedor')
+DROP TABLE APROBADOS.proveedor
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'compra')
+DROP TABLE APROBADOS.compra
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'producto_por_compra')
+DROP TABLE APROBADOS.producto_por_compra
+
 --------------------------------------------------- 
 -- CREACION DE ESQUEMA
 ---------------------------------------------------
