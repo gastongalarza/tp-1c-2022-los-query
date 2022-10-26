@@ -56,6 +56,15 @@ DROP TABLE INFORMADOS.tipo_variante
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'proveedor')
 DROP TABLE INFORMADOS.proveedor
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'provincia')
+DROP TABLE INFORMADOS.provincia
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'localidad')
+DROP TABLE INFORMADOS.localidad
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'codigo_postal')
+DROP TABLE INFORMADOS.codigo_postal
+
 ---------------------------------------------------
 -- ELIMINACION DE VISTAS EN CASO DE QUE EXISTAN
 ---------------------------------------------------
@@ -79,6 +88,22 @@ GO
 ---------------------------------------------------
 -- CREACIÓN DE TABLAS
 ---------------------------------------------------
+
+CREATE TABLE INFORMADOS.provincia(
+id_provincia int IDENTITY(1,1) PRIMARY KEY,
+nombre nvarchar(255)
+);
+
+CREATE TABLE INFORMADOS.localidad(
+id_canal int IDENTITY(1,1) PRIMARY KEY,
+id_provincia int REFERENCES INFORMADOS.provincia(id_provincia),
+nombre nvarchar(255)
+);
+
+CREATE TABLE INFORMADOS.codigo_postal(
+id_codigo_postal decimal(18,0) PRIMARY KEY,
+id_localidad int 
+);
 
 CREATE TABLE INFORMADOS.cliente(
 id_cliente int IDENTITY(1,1) PRIMARY KEY,
@@ -248,6 +273,53 @@ FOREIGN KEY (id_producto) REFERENCES INFORMADOS.producto(id_producto)
 ---------------------------------------------------
 --CREACION DE STORE PROCEDURES
 ---------------------------------------------------
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_ubicaciones')
+	DROP PROCEDURE sp_migrar_ubicaciones
+GO
+
+CREATE PROCEDURE sp_migrar_ubicaciones
+AS
+BEGIN
+	INSERT INTO INFORMADOS.provincia(nombre)
+	SELECT DISTINCT CLIENTE_PROVINCIA
+	FROM gd_esquema.Maestra
+
+	INSERT INTO INFORMADOS.localidad(nombre, id_provincia)
+	SELECT DISTINCT CLIENTE_LOCALIDAD,
+		(select p.id_provincia from INFORMADOS.provincia p where p.nombre = CLIENTE_PROVINCIA)
+	FROM gd_esquema.Maestra
+	where CLIENTE_LOCALIDAD is not null and CLIENTE_PROVINCIA is not null
+	group by CLIENTE_LOCALIDAD, CLIENTE_PROVINCIA
+
+	INSERT INTO INFORMADOS.codigo_postal(id_codigo_postal, id_localidad)
+	SELECT DISTINCT CLIENTE_CODIGO_POSTAL,
+		(select l.id_canal
+		from INFORMADOS.localidad l
+		inner join INFORMADOS.provincia p on p.id_provincia = l.id_provincia
+			where l.nombre = CLIENTE_LOCALIDAD and p.nombre = CLIENTE_PROVINCIA)
+	FROM gd_esquema.Maestra
+	where CLIENTE_CODIGO_POSTAL is not null and CLIENTE_LOCALIDAD is not null and CLIENTE_PROVINCIA is not null
+	group by CLIENTE_CODIGO_POSTAL, CLIENTE_LOCALIDAD, CLIENTE_PROVINCIA
+END
+GO
+
+
+CREATE TABLE INFORMADOS.provincia(
+id_provincia int IDENTITY(1,1) PRIMARY KEY,
+nombre nvarchar(255)
+);
+
+CREATE TABLE INFORMADOS.localidad(
+id_canal int IDENTITY(1,1) PRIMARY KEY,
+id_provincia int REFERENCES INFORMADOS.provincia(id_provincia),
+nombre nvarchar(255)
+);
+
+CREATE TABLE INFORMADOS.codigo_postal(
+id_codigo_postal decimal(18,0) PRIMARY KEY,
+id_localidad int 
+);
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_cliente')
 	DROP PROCEDURE sp_migrar_cliente
