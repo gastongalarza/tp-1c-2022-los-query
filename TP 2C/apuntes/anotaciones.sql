@@ -79,6 +79,35 @@ Venta/Producto
 */
 
 -----------------------------------------------------------
+----------- Orden para ejecutar las migraciones -----------
+-----------------------------------------------------------
+
+-- De hojas a raíces. Una entidad se puede migrar si todas las entidades que conoce ya están
+-- migradas o la migración se hace al mismo tiempo
+
+/*
+hojas
+- canal_de_venta
+- cupon
+- provincia/zona
+- categoria_producto
+
+segundo nivel
+- cliente
+- proveedor
+- producto
+
+
+venta	- cliente		- zona			- provincia
+		- metodo_envio
+		- canal_venta
+
+compra	- proveedor		- zona			- provincia
+
+
+*/
+
+-----------------------------------------------------------
 ------------------ Análisis de los datos ------------------
 -----------------------------------------------------------
 

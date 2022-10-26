@@ -33,17 +33,14 @@ DROP TABLE INFORMADOS.envio
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'medio_pago')
 DROP TABLE INFORMADOS.medio_pago
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'barrio')
-DROP TABLE INFORMADOS.barrio
-
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cupon')
 DROP TABLE INFORMADOS.cupon
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'producto')
 DROP TABLE INFORMADOS.producto
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'categoria')
-DROP TABLE INFORMADOS.categoria
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'categoria_producto')
+DROP TABLE INFORMADOS.categoria_producto
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'variante')
 DROP TABLE INFORMADOS.variante

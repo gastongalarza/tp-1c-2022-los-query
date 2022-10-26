@@ -10,27 +10,19 @@ CREATE PROCEDURE sp_migrar_ubicaciones
 AS
 BEGIN
 	INSERT INTO INFORMADOS.provincia(nombre)
-	SELECT DISTINCT CLIENTE_PROVINCIA
-	FROM gd_esquema.Maestra
-	WHERE CLIENTE_PROVINCIA is not null
+	SELECT DISTINCT CLIENTE_PROVINCIA FROM gd_esquema.Maestra WHERE CLIENTE_PROVINCIA is not null
 	UNION
-	SELECT DISTINCT PROVEEDOR_PROVINCIA
-	FROM gd_esquema.Maestra
-	WHERE PROVEEDOR_PROVINCIA is not null
+	SELECT DISTINCT PROVEEDOR_PROVINCIA FROM gd_esquema.Maestra WHERE PROVEEDOR_PROVINCIA is not null
 
 	INSERT INTO INFORMADOS.zona(codigo_postal, localidad, id_provincia)
 	SELECT DISTINCT CLIENTE_CODIGO_POSTAL, CLIENTE_LOCALIDAD,
-		(select p.id_provincia
-		from INFORMADOS.provincia p
-		where p.nombre = CLIENTE_PROVINCIA)
+		(select p.id_provincia from INFORMADOS.provincia p where p.nombre = CLIENTE_PROVINCIA)
 	FROM gd_esquema.Maestra
 	where CLIENTE_CODIGO_POSTAL is not null and CLIENTE_LOCALIDAD is not null and CLIENTE_PROVINCIA is not null
 	group by CLIENTE_CODIGO_POSTAL, CLIENTE_LOCALIDAD, CLIENTE_PROVINCIA
 	UNION
 	SELECT DISTINCT PROVEEDOR_CODIGO_POSTAL, PROVEEDOR_LOCALIDAD,
-		(select p.id_provincia
-		from INFORMADOS.provincia p
-		where p.nombre = PROVEEDOR_PROVINCIA)
+		(select p.id_provincia from INFORMADOS.provincia p where p.nombre = PROVEEDOR_PROVINCIA)
 	FROM gd_esquema.Maestra
 	where PROVEEDOR_CODIGO_POSTAL is not null and PROVEEDOR_LOCALIDAD is not null and PROVEEDOR_PROVINCIA is not null
 	group by PROVEEDOR_CODIGO_POSTAL, PROVEEDOR_LOCALIDAD, PROVEEDOR_PROVINCIA
@@ -52,8 +44,7 @@ CREATE PROCEDURE sp_migrar_cliente
 		from INFORMADOS.zona z
 		inner join INFORMADOS.provincia p on p.id_provincia = z.id_provincia
 		where z.localidad = CLIENTE_LOCALIDAD and z.codigo_postal = CLIENTE_CODIGO_POSTAL and
-			p.nombre = CLIENTE_PROVINCIA
-		)
+			p.nombre = CLIENTE_PROVINCIA)
 	FROM gd_esquema.Maestra
 	WHERE CLIENTE_DNI is not null
 	group by CLIENTE_DNI, CLIENTE_NOMBRE, CLIENTE_APELLIDO, CLIENTE_DIRECCION, CLIENTE_TELEFONO,
@@ -61,6 +52,7 @@ CREATE PROCEDURE sp_migrar_cliente
   END
 GO
 
+/*
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_canal')
 	DROP PROCEDURE sp_migrar_canal
 GO
@@ -72,6 +64,29 @@ CREATE PROCEDURE sp_migrar_canal
 	SELECT DISTINCT VENTA_CANAL, VENTA_CANAL_COSTO
 	FROM gd_esquema.Maestra
   END
+GO
+*/
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_producto')
+	DROP PROCEDURE sp_migrar_producto
+GO
+
+CREATE PROCEDURE sp_migrar_producto
+AS
+BEGIN
+	INSERT INTO INFORMADOS.categoria_producto (nombre)
+	SELECT DISTINCT PRODUCTO_CATEGORIA
+	FROM gd_esquema.Maestra
+	where PRODUCTO_CATEGORIA is not null
+
+	INSERT INTO INFORMADOS.producto(id_producto, nombre, descripcion, material, marca, id_categoria)
+	SELECT DISTINCT PRODUCTO_CODIGO, PRODUCTO_NOMBRE, PRODUCTO_DESCRIPCION, PRODUCTO_MATERIAL, PRODUCTO_MARCA,
+		(select c.id_categoria
+		from INFORMADOS.categoria_producto c
+		where c.nombre = PRODUCTO_CATEGORIA)
+	FROM gd_esquema.Maestra
+	where PRODUCTO_CODIGO is not null
+END
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_envio')
@@ -100,7 +115,7 @@ CREATE PROCEDURE sp_migrar_medio_pago
   END
 GO
 
-
+/*
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_barrio')
 	DROP PROCEDURE sp_migrar_barrio
 GO
@@ -114,8 +129,9 @@ CREATE PROCEDURE sp_migrar_barrio
 	FROM gd_esquema.Maestra
   END
 GO
+*/
 
-
+/*
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_venta')
 	DROP PROCEDURE sp_migrar_venta
 GO
@@ -142,19 +158,32 @@ CREATE PROCEDURE sp_migrar_venta
 	WHERE cliente.id_cliente IS NOT NULL and canal.id_canal IS NOT NULL and envio.id_envio IS NOT NULL and mediopago.id_medio_pago IS NOT NULL
   END
 GO
+*/
 
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
 ---------------------------------------------------
 
+EXECUTE sp_migrar_ubicaciones
+EXECUTE sp_migrar_producto
+EXECUTE sp_migrar_cliente
+
+
+-- EXECUTE sp_migrar_canal
+-- EXECUTE sp_migrar_envio
+-- EXECUTE sp_migrar_medio_pago
+
+/*
  BEGIN TRANSACTION
  BEGIN TRY
+	EXECUTE sp_migrar_ubicaciones
+	EXECUTE sp_migrar_producto
 	EXECUTE sp_migrar_cliente
 	EXECUTE sp_migrar_canal
 	EXECUTE sp_migrar_envio
+
 	EXECUTE sp_migrar_medio_pago
 
-	EXECUTE sp_migrar_barrio
 --	EXECUTE sp_migrar_venta
 
 END TRY
@@ -180,3 +209,4 @@ END CATCH
 	THROW 50002, 'Se encontraron errores al migrar las tablas. Ne se migraron datos.',1;
    END
 GO
+*/

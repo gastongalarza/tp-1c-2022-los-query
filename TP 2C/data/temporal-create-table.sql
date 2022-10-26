@@ -58,13 +58,6 @@ medio_pago nvarchar(255),
 costo decimal(18,2)
 );
 
-CREATE TABLE INFORMADOS.barrio(
-id_barrio int identity(1,1) PRIMARY KEY,
-codigo_postal decimal(18,0),
-localidad nvarchar(255),
-provincia nvarchar(255)
-);
-
 CREATE TABLE INFORMADOS.venta(
 id_venta int identity(1,1) PRIMARY KEY,
 codigo_venta decimal(19,0),
@@ -108,7 +101,7 @@ FOREIGN KEY (id_venta) REFERENCES INFORMADOS.venta(id_venta),
 FOREIGN KEY (id_cupon) REFERENCES INFORMADOS.cupon(id_cupon)
 );
 
-CREATE TABLE INFORMADOS.categoria(
+CREATE TABLE INFORMADOS.categoria_producto(
 id_categoria int identity(1,1) PRIMARY KEY,
 nombre nvarchar(255)
 );
@@ -132,10 +125,10 @@ nombre nvarchar(255),
 descripcion nvarchar(255),
 material nvarchar(255),
 marca nvarchar(255),
-id_variante int,
+-- id_variante int,
 id_categoria int,
-FOREIGN KEY (id_variante) REFERENCES INFORMADOS.variante(id_variante),
-FOREIGN KEY (id_categoria) REFERENCES INFORMADOS.categoria(id_categoria)
+-- FOREIGN KEY (id_variante) REFERENCES INFORMADOS.variante(id_variante),
+FOREIGN KEY (id_categoria) REFERENCES INFORMADOS.categoria_producto(id_categoria)
 );
 
 CREATE TABLE INFORMADOS.producto_por_venta(
