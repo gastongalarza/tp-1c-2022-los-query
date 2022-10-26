@@ -37,9 +37,7 @@ direccion nvarchar(255),
 telefono decimal(18,0),
 mail nvarchar(255),
 fecha_nacimiento date,
-localidad nvarchar(255),
-codigo_postal decimal(18,0),
-provincia nvarchar(255)
+id_zona int REFERENCES INFORMADOS.zona(id_zona)
 );
 
 CREATE TABLE INFORMADOS.canal(
