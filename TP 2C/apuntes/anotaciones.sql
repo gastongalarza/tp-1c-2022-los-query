@@ -42,11 +42,13 @@ Venta
 [VENTA_CODIGO]				--> venta/id_venta
 [VENTA_FECHA]				--> venta/fecha
 [VENTA_TOTAL]				--> venta/total
-[VENTA_MEDIO_PAGO]			--> canal_venta/nombre
-	=> id_canal_venta --> venta/id_canal_venta + canal_venta/id_canal_venta *ver abajo
+[VENTA_MEDIO_PAGO]			
 [VENTA_MEDIO_PAGO_COSTO]	--> TODO
 [VENTA_ENVIO_PRECIO]		--> ????
 [VENTA_MEDIO_ENVIO]			--> ????
+[VENTA_CANAL]				--> canal_venta/nombre
+	=> id_canal_venta --> venta/id_canal_venta + canal_venta/id_canal_venta *ver abajo
+[VENTA_CANAL_COSTO]			--> canal_venta/costo
 
 Cliente
 [CLIENTE_NOMBRE]			--> cliente/nombre
@@ -134,10 +136,10 @@ from gd_esquema.Maestra m
 group by m.VENTA_MEDIO_ENVIO
 
 select m.VENTA_MEDIO_PAGO, m.VENTA_MEDIO_PAGO_COSTO,
-	m.VENTA_ENVIO_PRECIO, m.VENTA_MEDIO_ENVIO
+	m.VENTA_ENVIO_PRECIO, m.VENTA_MEDIO_ENVIO, m.VENTA_CANAL, m.VENTA_CANAL_COSTO
 from gd_esquema.Maestra m
 group by m.VENTA_MEDIO_PAGO, m.VENTA_MEDIO_PAGO_COSTO,
-	m.VENTA_ENVIO_PRECIO, m.VENTA_MEDIO_ENVIO
+	m.VENTA_ENVIO_PRECIO, m.VENTA_MEDIO_ENVIO, m.VENTA_CANAL, m.VENTA_CANAL_COSTO
 
 /*
 ==> venta_medio_pago corresponde al concepto de canal de venta
@@ -146,3 +148,102 @@ group by m.VENTA_MEDIO_PAGO, m.VENTA_MEDIO_PAGO_COSTO,
 select m.CLIENTE_CODIGO_POSTAL
 from gd_esquema.Maestra m
 group by m.CLIENTE_CODIGO_POSTAL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-----------------------------------------
+--borrador
+-----------------------------------------
+
+select [PRODUCTO_VARIANTE_CODIGO]
+	,[PRODUCTO_NOMBRE]
+    ,[PRODUCTO_DESCRIPCION]
+    ,[PRODUCTO_MATERIAL]
+    ,[PRODUCTO_CODIGO]
+    ,[PRODUCTO_MARCA]
+    ,[PRODUCTO_CATEGORIA]
+    ,[PRODUCTO_TIPO_VARIANTE]
+    ,[PRODUCTO_VARIANTE]
+from gd_esquema.Maestra
+group by [PRODUCTO_VARIANTE_CODIGO]
+	,[PRODUCTO_NOMBRE]
+    ,[PRODUCTO_DESCRIPCION]
+    ,[PRODUCTO_MATERIAL]
+    ,[PRODUCTO_CODIGO]
+    ,[PRODUCTO_MARCA]
+    ,[PRODUCTO_CATEGORIA]
+    ,[PRODUCTO_TIPO_VARIANTE]
+    ,[PRODUCTO_VARIANTE]
+
+select PRODUCTO_VARIANTE_CODIGO, PRODUCTO_NOMBRE
+from gd_esquema.Maestra
+group by PRODUCTO_VARIANTE_CODIGO, PRODUCTO_NOMBRE
+
+select count(distinct PRODUCTO_NOMBRE)
+from gd_esquema.Maestra
+group by PRODUCTO_VARIANTE_CODIGO
+having count(distinct PRODUCTO_NOMBRE) > 1
+
+select count(distinct VENTA_CODIGO)
+from gd_esquema.Maestra
+where PRODUCTO_VARIANTE_CODIGO is not null and VENTA_CODIGO is not null
+group by PRODUCTO_VARIANTE_CODIGO
+having count(distinct VENTA_CODIGO) > 1
+
+select count(distinct PRODUCTO_VARIANTE)
+from gd_esquema.Maestra
+where PRODUCTO_NOMBRE is not null
+group by PRODUCTO_NOMBRE
+having count(distinct PRODUCTO_VARIANTE) > 1
+
+select count(distinct PRODUCTO_VARIANTE_CODIGO)
+from gd_esquema.Maestra
+where PRODUCTO_CODIGO is not null
+group by PRODUCTO_CODIGO
+having count(distinct PRODUCTO_NOMBRE) > 1
+
+-- 1 producto			--> 1 solo variante codigo
+-- 1 variante codigo	--> 1 producto
+-- 1 variante codigo	--> muchas venta codigo
+-- 1 producto			--> 1 producto variante
+
+
+select PRODUCTO_VARIANTE, PRODUCTO_VARIANTE_CODIGO, PRODUCTO_TIPO_VARIANTE
+from gd_esquema.Maestra
+where PRODUCTO_NOMBRE is not null
+group by PRODUCTO_VARIANTE, PRODUCTO_VARIANTE_CODIGO, PRODUCTO_TIPO_VARIANTE
+
+select PRODUCTO_VARIANTE_CODIGO, count(distinct PRODUCTO_CODIGO), count(distinct PRODUCTO_VARIANTE), count(distinct PRODUCTO_TIPO_VARIANTE)
+from gd_esquema.Maestra
+where PRODUCTO_VARIANTE_CODIGO is not null
+group by PRODUCTO_VARIANTE_CODIGO
+having count(distinct PRODUCTO_VARIANTE) > 1 or count(distinct PRODUCTO_TIPO_VARIANTE) > 1 or count(distinct PRODUCTO_CODIGO) > 1
+
+select PRODUCTO_NOMBRE, count(distinct PRODUCTO_VARIANTE_CODIGO), count(distinct VENTA_PRODUCTO_PRECIO), count(distinct VENTA_CODIGO)
+from gd_esquema.Maestra
+where PRODUCTO_NOMBRE is not null
+group by PRODUCTO_NOMBRE
+having count(distinct PRODUCTO_VARIANTE) > 1 or count(distinct PRODUCTO_TIPO_VARIANTE) > 1
+
+select PRODUCTO_VARIANTE, count(distinct PRODUCTO_CODIGO), count(distinct PRODUCTO_VARIANTE_CODIGO)
+from gd_esquema.Maestra
+where PRODUCTO_VARIANTE is not null
+group by PRODUCTO_VARIANTE

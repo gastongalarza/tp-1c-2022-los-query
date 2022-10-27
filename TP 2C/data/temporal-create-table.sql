@@ -112,8 +112,8 @@ tipo nvarchar(50)
 );
 
 CREATE TABLE INFORMADOS.variante(
-id_variante int PRIMARY KEY,
-nombre nvarchar(255),
+id_variante int identity(1,1) PRIMARY KEY,
+nombre nvarchar(50),
 precio decimal(18,6),
 id_tipo_variante int,
 FOREIGN KEY (id_tipo_variante) REFERENCES INFORMADOS.tipo_variante(id_tipo_variante)

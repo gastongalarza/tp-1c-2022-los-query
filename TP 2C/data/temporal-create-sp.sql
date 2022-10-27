@@ -52,7 +52,6 @@ CREATE PROCEDURE sp_migrar_cliente
   END
 GO
 
-/*
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_canal')
 	DROP PROCEDURE sp_migrar_canal
 GO
@@ -65,7 +64,6 @@ CREATE PROCEDURE sp_migrar_canal
 	FROM gd_esquema.Maestra
   END
 GO
-*/
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_producto')
 	DROP PROCEDURE sp_migrar_producto
@@ -88,6 +86,29 @@ BEGIN
 	where PRODUCTO_CODIGO is not null
 END
 GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_variante')
+	DROP PROCEDURE sp_migrar_variante
+GO
+
+CREATE PROCEDURE sp_migrar_variante
+AS
+BEGIN
+	INSERT INTO INFORMADOS.tipo_variante (tipo)
+	SELECT DISTINCT PRODUCTO_TIPO_VARIANTE
+	FROM gd_esquema.Maestra
+	where PRODUCTO_TIPO_VARIANTE is not null
+
+	INSERT INTO INFORMADOS.variante(nombre, id_tipo_variante)
+	SELECT DISTINCT PRODUCTO_VARIANTE,
+		(select tp.id_tipo_variante
+		from INFORMADOS.tipo_variante tp
+		where tp.tipo = PRODUCTO_TIPO_VARIANTE)
+	FROM gd_esquema.Maestra
+	where PRODUCTO_VARIANTE is not null
+END
+GO
+
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_envio')
 	DROP PROCEDURE sp_migrar_envio
@@ -115,23 +136,6 @@ CREATE PROCEDURE sp_migrar_medio_pago
   END
 GO
 
-/*
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_barrio')
-	DROP PROCEDURE sp_migrar_barrio
-GO
-
-
-CREATE PROCEDURE sp_migrar_barrio
- AS
-  BEGIN
-    INSERT INTO INFORMADOS.barrio(codigo_postal, localidad, provincia)
-	SELECT DISTINCT CLIENTE_CODIGO_POSTAL, CLIENTE_LOCALIDAD, CLIENTE_PROVINCIA
-	FROM gd_esquema.Maestra
-  END
-GO
-*/
-
-/*
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_venta')
 	DROP PROCEDURE sp_migrar_venta
 GO
@@ -158,7 +162,7 @@ CREATE PROCEDURE sp_migrar_venta
 	WHERE cliente.id_cliente IS NOT NULL and canal.id_canal IS NOT NULL and envio.id_envio IS NOT NULL and mediopago.id_medio_pago IS NOT NULL
   END
 GO
-*/
+
 
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
@@ -167,7 +171,7 @@ GO
 EXECUTE sp_migrar_ubicaciones
 EXECUTE sp_migrar_producto
 EXECUTE sp_migrar_cliente
-
+EXECUTE sp_migrar_variante
 
 -- EXECUTE sp_migrar_canal
 -- EXECUTE sp_migrar_envio
