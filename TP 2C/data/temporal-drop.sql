@@ -3,6 +3,9 @@
 -- ELIMINACION DE TABLAS EN CASO DE QUE EXISTAN
 ---------------------------------------------------
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'envio_disponible')
+DROP TABLE INFORMADOS.envio_disponible
+
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'producto_por_compra')
 DROP TABLE INFORMADOS.producto_por_compra
 

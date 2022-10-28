@@ -43,7 +43,8 @@ CREATE PROCEDURE sp_migrar_cliente
 		(select top 1 z.id_zona
 		from INFORMADOS.zona z
 		inner join INFORMADOS.provincia p on p.id_provincia = z.id_provincia
-		where z.localidad = CLIENTE_LOCALIDAD and z.codigo_postal = CLIENTE_CODIGO_POSTAL and
+		where z.localidad = CLIENTE_LOCALIDAD and
+			z.codigo_postal = CLIENTE_CODIGO_POSTAL and
 			p.nombre = CLIENTE_PROVINCIA)
 	FROM gd_esquema.Maestra
 	WHERE CLIENTE_DNI is not null
@@ -62,6 +63,7 @@ CREATE PROCEDURE sp_migrar_canal
     INSERT INTO INFORMADOS.canal (nombre, costo)
 	SELECT DISTINCT VENTA_CANAL, VENTA_CANAL_COSTO
 	FROM gd_esquema.Maestra
+	where VENTA_CANAL is not null and VENTA_CANAL_COSTO is not null
   END
 GO
 
@@ -115,12 +117,21 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_envio')
 GO
 
 CREATE PROCEDURE sp_migrar_envio
- AS
-  BEGIN
-    INSERT INTO INFORMADOS.envio (medio, precio)
-	SELECT DISTINCT VENTA_MEDIO_ENVIO, VENTA_ENVIO_PRECIO
+AS
+BEGIN
+	INSERT INTO INFORMADOS.envio (medio)
+	SELECT DISTINCT VENTA_MEDIO_ENVIO
 	FROM gd_esquema.Maestra
-  END
+	where VENTA_MEDIO_ENVIO is not null
+
+	INSERT INTO INFORMADOS.envio_disponible(id_metodo_envio, id_zona, precio)
+	SELECT DISTINCT e.id_envio, z.id_zona, VENTA_ENVIO_PRECIO
+	FROM gd_esquema.Maestra ma
+	inner join INFORMADOS.envio e on e.medio = ma.VENTA_MEDIO_ENVIO
+	inner join INFORMADOS.zona z on z.codigo_postal = CLIENTE_CODIGO_POSTAL and
+		z.localidad = CLIENTE_LOCALIDAD
+
+END
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_medio_pago')
@@ -172,8 +183,7 @@ EXECUTE sp_migrar_ubicaciones
 EXECUTE sp_migrar_producto
 EXECUTE sp_migrar_cliente
 EXECUTE sp_migrar_variante
-
--- EXECUTE sp_migrar_canal
+EXECUTE sp_migrar_canal
 -- EXECUTE sp_migrar_envio
 -- EXECUTE sp_migrar_medio_pago
 

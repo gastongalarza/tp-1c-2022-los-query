@@ -48,8 +48,16 @@ costo decimal(18,2)
 
 CREATE TABLE INFORMADOS.envio(
 id_envio int IDENTITY(1,1) PRIMARY KEY,
-medio nvarchar(255),
-precio decimal(18,2)
+medio nvarchar(255)
+);
+
+CREATE TABLE INFORMADOS.envio_disponible(
+id_metodo_envio int,
+id_zona int,
+precio decimal(18,2),
+PRIMARY KEY (id_metodo_envio, id_zona),
+FOREIGN KEY (id_metodo_envio) REFERENCES INFORMADOS.envio(id_envio),
+FOREIGN KEY (id_zona) REFERENCES INFORMADOS.zona(id_zona),
 );
 
 CREATE TABLE INFORMADOS.medio_pago(
