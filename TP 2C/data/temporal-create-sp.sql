@@ -130,7 +130,6 @@ BEGIN
 	inner join INFORMADOS.envio e on e.medio = ma.VENTA_MEDIO_ENVIO
 	inner join INFORMADOS.zona z on z.codigo_postal = CLIENTE_CODIGO_POSTAL and
 		z.localidad = CLIENTE_LOCALIDAD
-
 END
 GO
 
@@ -139,12 +138,13 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_medio_pago
 GO
 
 CREATE PROCEDURE sp_migrar_medio_pago
- AS
-  BEGIN
-    INSERT INTO INFORMADOS.medio_pago(medio_pago, costo)
+AS
+BEGIN
+	INSERT INTO INFORMADOS.medio_pago(medio_pago, costo)
 	SELECT DISTINCT VENTA_MEDIO_PAGO, VENTA_MEDIO_PAGO_COSTO
 	FROM gd_esquema.Maestra
-  END
+	where VENTA_MEDIO_PAGO is not null
+END
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_venta')

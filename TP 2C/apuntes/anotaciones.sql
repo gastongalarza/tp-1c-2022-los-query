@@ -149,11 +149,19 @@ select m.CLIENTE_CODIGO_POSTAL
 from gd_esquema.Maestra m
 group by m.CLIENTE_CODIGO_POSTAL
 
+-----------
+-- Medio de pago
+-----------
+
+/*
+Cada medio de pago tiene un solo costo asociado
+*/
 
 
-
-
-
+select VENTA_MEDIO_PAGO, count(distinct VENTA_MEDIO_PAGO_COSTO)
+from gd_esquema.Maestra
+where VENTA_MEDIO_PAGO is not null
+group by VENTA_MEDIO_PAGO
 
 
 
