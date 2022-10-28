@@ -152,11 +152,9 @@ FOREIGN KEY (id_producto) REFERENCES INFORMADOS.producto(id_producto)
 CREATE TABLE INFORMADOS.proveedor(
 id_proveedor nvarchar(50) PRIMARY KEY,
 razon_social nvarchar(255),
-domicilio nvarchar(255),
+direccion nvarchar(255),
 mail nvarchar(255),
-localidad nvarchar(255),
-codigo_postal decimal(18,0),
-provincia nvarchar(255)
+id_zona int REFERENCES INFORMADOS.zona(id_zona)
 );
 
 CREATE TABLE INFORMADOS.compra(

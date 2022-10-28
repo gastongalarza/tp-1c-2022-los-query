@@ -53,6 +53,33 @@ CREATE PROCEDURE sp_migrar_cliente
   END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_proveedor')
+	DROP PROCEDURE sp_migrar_proveedor
+GO
+
+CREATE PROCEDURE sp_migrar_proveedor
+ AS
+  BEGIN
+    INSERT INTO INFORMADOS.proveedor (id_proveedor, razon_social, direccion, mail, id_zona)
+	SELECT DISTINCT PROVEEDOR_CUIT, PROVEEDOR_RAZON_SOCIAL, PROVEEDOR_DOMICILIO, PROVEEDOR_MAIL,
+		(select top 1 z.id_zona
+		from INFORMADOS.zona z
+		inner join INFORMADOS.provincia p on p.id_provincia = z.id_provincia
+		where z.localidad = PROVEEDOR_LOCALIDAD and
+			z.codigo_postal = PROVEEDOR_CODIGO_POSTAL and
+			p.nombre = PROVEEDOR_PROVINCIA)
+	FROM gd_esquema.Maestra
+	WHERE PROVEEDOR_CUIT is not null
+	group by PROVEEDOR_CODIGO_POSTAL, PROVEEDOR_CUIT, PROVEEDOR_DOMICILIO, PROVEEDOR_LOCALIDAD,
+		PROVEEDOR_MAIL, PROVEEDOR_PROVINCIA, PROVEEDOR_RAZON_SOCIAL
+  END
+GO
+
+/*
+select distinct PROVEEDOR_CODIGO_POSTAL, PROVEEDOR_CUIT, PROVEEDOR_DOMICILIO, PROVEEDOR_LOCALIDAD, PROVEEDOR_MAIL, PROVEEDOR_PROVINCIA, PROVEEDOR_RAZON_SOCIAL
+from gd_esquema.Maestra
+*/
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_canal')
 	DROP PROCEDURE sp_migrar_canal
 GO
@@ -186,6 +213,8 @@ EXECUTE sp_migrar_variante
 EXECUTE sp_migrar_canal
 EXECUTE sp_migrar_envio
 EXECUTE sp_migrar_medio_pago
+EXECUTE sp_migrar_proveedor
+--EXECUTE sp_migrar_proveedor
 
 /*
  BEGIN TRANSACTION

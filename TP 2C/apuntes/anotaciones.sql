@@ -99,10 +99,12 @@ segundo nivel
 - proveedor
 - producto
 
+Arbol de dependencias
 
-venta	- cliente		- zona			- provincia
-		- metodo_envio
+venta	- cliente		- envio			- metodo_envio
+		- zona ...						- zona			- provincia
 		- canal_venta
+		- medio_pago
 
 compra	- proveedor		- zona			- provincia
 
