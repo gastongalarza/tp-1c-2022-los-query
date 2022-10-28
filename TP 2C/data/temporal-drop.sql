@@ -3,9 +3,6 @@
 -- ELIMINACION DE TABLAS EN CASO DE QUE EXISTAN
 ---------------------------------------------------
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'envio_disponible')
-DROP TABLE INFORMADOS.envio_disponible
-
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'producto_por_compra')
 DROP TABLE INFORMADOS.producto_por_compra
 
@@ -24,14 +21,17 @@ DROP TABLE INFORMADOS.cupon_por_venta
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'venta')
 DROP TABLE INFORMADOS.venta
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'envio')
+DROP TABLE INFORMADOS.envio
+
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cliente')
 DROP TABLE INFORMADOS.cliente
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'canal')
 DROP TABLE INFORMADOS.canal
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'envio')
-DROP TABLE INFORMADOS.envio
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'metodo_envio')
+DROP TABLE INFORMADOS.metodo_envio
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'medio_pago')
 DROP TABLE INFORMADOS.medio_pago

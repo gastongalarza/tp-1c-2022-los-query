@@ -119,15 +119,15 @@ GO
 CREATE PROCEDURE sp_migrar_envio
 AS
 BEGIN
-	INSERT INTO INFORMADOS.envio (medio)
+	INSERT INTO INFORMADOS.metodo_envio (nombre)
 	SELECT DISTINCT VENTA_MEDIO_ENVIO
 	FROM gd_esquema.Maestra
 	where VENTA_MEDIO_ENVIO is not null
 
-	INSERT INTO INFORMADOS.envio_disponible(id_metodo_envio, id_zona, precio)
-	SELECT DISTINCT e.id_envio, z.id_zona, VENTA_ENVIO_PRECIO
+	INSERT INTO INFORMADOS.envio(id_metodo_envio, id_zona, precio)
+	SELECT DISTINCT m.id_metodo_envio, z.id_zona, VENTA_ENVIO_PRECIO
 	FROM gd_esquema.Maestra ma
-	inner join INFORMADOS.envio e on e.medio = ma.VENTA_MEDIO_ENVIO
+	inner join INFORMADOS.metodo_envio m on m.nombre = ma.VENTA_MEDIO_ENVIO
 	inner join INFORMADOS.zona z on z.codigo_postal = CLIENTE_CODIGO_POSTAL and
 		z.localidad = CLIENTE_LOCALIDAD
 END
@@ -150,7 +150,7 @@ GO
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_venta')
 	DROP PROCEDURE sp_migrar_venta
 GO
-
+/*
 CREATE PROCEDURE sp_migrar_venta
  AS
   BEGIN
@@ -173,7 +173,7 @@ CREATE PROCEDURE sp_migrar_venta
 	WHERE cliente.id_cliente IS NOT NULL and canal.id_canal IS NOT NULL and envio.id_envio IS NOT NULL and mediopago.id_medio_pago IS NOT NULL
   END
 GO
-
+*/
 
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
@@ -184,8 +184,8 @@ EXECUTE sp_migrar_producto
 EXECUTE sp_migrar_cliente
 EXECUTE sp_migrar_variante
 EXECUTE sp_migrar_canal
--- EXECUTE sp_migrar_envio
--- EXECUTE sp_migrar_medio_pago
+EXECUTE sp_migrar_envio
+EXECUTE sp_migrar_medio_pago
 
 /*
  BEGIN TRANSACTION
