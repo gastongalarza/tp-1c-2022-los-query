@@ -35,7 +35,7 @@ DROP TABLE INFORMADOS.canal
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'envio')
 DROP TABLE INFORMADOS.envio
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'medio_pago')
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'medio_pago_venta')
 DROP TABLE INFORMADOS.medio_pago
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'barrio')
@@ -134,7 +134,7 @@ medio nvarchar(255),
 precio decimal(18,2)
 );
 
-CREATE TABLE INFORMADOS.medio_pago(
+CREATE TABLE INFORMADOS.medio_pago_venta(
 id_medio_pago int identity(1,1) PRIMARY KEY,
 medio_pago nvarchar(255),
 costo decimal(18,2)
@@ -375,9 +375,9 @@ GO
 CREATE PROCEDURE sp_migrar_medio_pago
  AS
   BEGIN
-    INSERT INTO INFORMADOS.medio_pago(medio_pago, costo)
+    INSERT INTO INFORMADOS.medio_pago_venta(medio_pago, costo)
 	SELECT DISTINCT VENTA_MEDIO_PAGO, VENTA_MEDIO_PAGO_COSTO
-	FROM gd_esquema.Maestra
+	FROM gd_esquema.Maestra where VENTA_MEDIO_PAGO is not null and VENTA_MEDIO_PAGO_COSTO is not null
   END
 GO
 
@@ -404,7 +404,7 @@ GO
 CREATE PROCEDURE sp_migrar_venta
  AS
   BEGIN
-    INSERT INTO INFORMADOS.venta(codigo_venta, fecha,id_cliente, id_canal, id_envio, id_medio_pago, total)
+    INSERT INTO INFORMADOS.venta(id_venta, fecha,id_cliente, id_canal, id_envio, id_medio_pago, total)
     SELECT DISTINCT origen.VENTA_CODIGO, origen.VENTA_FECHA, cliente.id_cliente, canal.id_canal, envio.id_envio, mediopago.id_medio_pago, origen.VENTA_TOTAL
 	FROM gd_esquema.Maestra AS origen
 	join INFORMADOS.cliente cliente on origen.CLIENTE_NOMBRE = cliente.nombre and
