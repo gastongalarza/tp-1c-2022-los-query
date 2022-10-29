@@ -23,6 +23,9 @@ DROP TABLE INFORMADOS.cupon_por_venta
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'venta')
 DROP TABLE INFORMADOS.venta
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'descuento_por_venta')
+DROP TABLE INFORMADOS.venta
+
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cliente')
 DROP TABLE INFORMADOS.cliente
 
@@ -145,8 +148,7 @@ provincia nvarchar(255)
 );
 
 CREATE TABLE INFORMADOS.venta(
-id_venta int identity(1,1) PRIMARY KEY,
-codigo_venta decimal(19,0),
+id_venta int PRIMARY KEY,
 fecha date,
 id_cliente int,
 id_canal int,
@@ -157,6 +159,12 @@ FOREIGN KEY (id_cliente) REFERENCES INFORMADOS.cliente(id_cliente),
 FOREIGN KEY (id_canal) REFERENCES INFORMADOS.canal(id_canal),
 FOREIGN KEY (id_envio) REFERENCES INFORMADOS.envio(id_envio),
 FOREIGN KEY (id_medio_pago) REFERENCES INFORMADOS.medio_pago(id_medio_pago)
+);
+
+CREATE TABLE INFORMADOS.descuento_por_venta(
+id_descuento_venta int identity(1000,1) PRIMARY KEY,
+id_venta int,
+FOREIGN KEY (id_venta) REFERENCES INFORMADOS.venta(id_venta)
 );
 
 CREATE TABLE INFORMADOS.descuento(
