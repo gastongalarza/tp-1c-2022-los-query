@@ -92,34 +92,33 @@ GO
 -- CREACIÓN DE TABLAS
 ---------------------------------------------------
 
+CREATE TABLE INFORMADOS.metodo_envio(
+id_metodo_envio int IDENTITY(1,1) PRIMARY KEY,
+medio varchar(255)
+);
+
 CREATE TABLE INFORMADOS.provincia(
 id_provincia int IDENTITY(1,1) PRIMARY KEY,
 nombre nvarchar(255)
 );
 
-CREATE TABLE INFORMADOS.localidad(
-id_canal int IDENTITY(1,1) PRIMARY KEY,
-id_provincia int REFERENCES INFORMADOS.provincia(id_provincia),
-nombre nvarchar(255)
-);
-
-CREATE TABLE INFORMADOS.codigo_postal(
-id_codigo_postal decimal(18,0) PRIMARY KEY,
-id_localidad int 
+CREATE TABLE INFORMADOS.zona(
+id_zona int IDENTITY(1,1) PRIMARY KEY,
+id_provincia int,
+localidad nvarchar(255),
+codigo_postal int
 );
 
 CREATE TABLE INFORMADOS.cliente(
 id_cliente int IDENTITY(1,1) PRIMARY KEY,
-dni decimal(18,0),
+id_zona int,
+dni bigint,
 nombre nvarchar(255),
 apellido nvarchar(255),
 direccion nvarchar(255),
 telefono decimal(18,0),
 mail nvarchar(255),
-fecha_nacimiento date,
-localidad nvarchar(255),
-codigo_postal decimal(18,0),
-provincia nvarchar(255)
+fecha_nacimiento date
 );
 
 CREATE TABLE INFORMADOS.canal(
@@ -130,7 +129,8 @@ costo decimal(18,2)
 
 CREATE TABLE INFORMADOS.envio(
 id_envio int IDENTITY(1,1) PRIMARY KEY,
-medio nvarchar(255),
+id_metodo_envio int,
+id_provincia int,
 precio decimal(18,2)
 );
 
@@ -292,42 +292,27 @@ BEGIN
 	INSERT INTO INFORMADOS.provincia(nombre)
 	SELECT DISTINCT CLIENTE_PROVINCIA
 	FROM gd_esquema.Maestra
+	where CLIENTE_PROVINCIA is not null
 
-	INSERT INTO INFORMADOS.localidad(nombre, id_provincia)
-	SELECT DISTINCT CLIENTE_LOCALIDAD,
-		(select p.id_provincia from INFORMADOS.provincia p where p.nombre = CLIENTE_PROVINCIA)
-	FROM gd_esquema.Maestra
-	where CLIENTE_LOCALIDAD is not null and CLIENTE_PROVINCIA is not null
-	group by CLIENTE_LOCALIDAD, CLIENTE_PROVINCIA
+	INSERT INTO INFORMADOS.zona(id_provincia,localidad,codigo_postal)
+	select distinct t2.id_provincia,t1.CLIENTE_LOCALIDAD,t1.CLIENTE_CODIGO_POSTAL from gd_esquema.Maestra t1
+	inner join INFORMADOS.provincia t2
+	on t1.CLIENTE_PROVINCIA=t2.nombre
 
-	INSERT INTO INFORMADOS.codigo_postal(id_codigo_postal, id_localidad)
-	SELECT DISTINCT CLIENTE_CODIGO_POSTAL,
-		(select l.id_canal
-		from INFORMADOS.localidad l
-		inner join INFORMADOS.provincia p on p.id_provincia = l.id_provincia
-			where l.nombre = CLIENTE_LOCALIDAD and p.nombre = CLIENTE_PROVINCIA)
-	FROM gd_esquema.Maestra
-	where CLIENTE_CODIGO_POSTAL is not null and CLIENTE_LOCALIDAD is not null and CLIENTE_PROVINCIA is not null
-	group by CLIENTE_CODIGO_POSTAL, CLIENTE_LOCALIDAD, CLIENTE_PROVINCIA
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_metodo_envio')
+	DROP PROCEDURE sp_migrar_metodo_envio
+GO
 
-CREATE TABLE INFORMADOS.provincia(
-id_provincia int IDENTITY(1,1) PRIMARY KEY,
-nombre nvarchar(255)
-);
-
-CREATE TABLE INFORMADOS.localidad(
-id_canal int IDENTITY(1,1) PRIMARY KEY,
-id_provincia int REFERENCES INFORMADOS.provincia(id_provincia),
-nombre nvarchar(255)
-);
-
-CREATE TABLE INFORMADOS.codigo_postal(
-id_codigo_postal decimal(18,0) PRIMARY KEY,
-id_localidad int 
-);
+CREATE PROCEDURE sp_migrar_metodo_envio
+ AS
+  BEGIN
+		insert into INFORMADOS.metodo_envio(medio)
+		select distinct VENTA_MEDIO_ENVIO from gd_esquema.Maestra where VENTA_MEDIO_ENVIO is not null
+  END
+GO;
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_cliente')
 	DROP PROCEDURE sp_migrar_cliente
@@ -418,7 +403,7 @@ CREATE PROCEDURE sp_migrar_venta
 	    origen.VENTA_CANAL_COSTO = canal.costo
 	join INFORMADOS.envio envio on origen.VENTA_MEDIO_ENVIO = envio.medio and 
 	    origen.VENTA_ENVIO_PRECIO = envio.precio
-	join INFORMADOS.medio_pago mediopago on origen.VENTA_MEDIO_PAGO = mediopago.id_medio_pago and
+	join INFORMADOS.medio_pago_venta mediopago on origen.VENTA_MEDIO_PAGO = mediopago.id_medio_pago and
 	    origen.VENTA_MEDIO_PAGO_COSTO = mediopago.costo
 	WHERE cliente.id_cliente IS NOT NULL and canal.id_canal IS NOT NULL and envio.id_envio IS NOT NULL and mediopago.id_medio_pago IS NOT NULL
   END
