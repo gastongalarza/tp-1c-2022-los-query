@@ -29,17 +29,14 @@ DROP TABLE INFORMADOS.venta
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cliente')
 DROP TABLE INFORMADOS.cliente
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'canal')
-DROP TABLE INFORMADOS.canal
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'canal_venta')
+DROP TABLE INFORMADOS.canal_venta
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'envio')
 DROP TABLE INFORMADOS.envio
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'medio_pago_venta')
 DROP TABLE INFORMADOS.medio_pago
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'barrio')
-DROP TABLE INFORMADOS.barrio
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cupon')
 DROP TABLE INFORMADOS.cupon
@@ -62,11 +59,9 @@ DROP TABLE INFORMADOS.proveedor
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'provincia')
 DROP TABLE INFORMADOS.provincia
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'localidad')
-DROP TABLE INFORMADOS.localidad
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'zona')
+DROP TABLE INFORMADOS.zona
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'codigo_postal')
-DROP TABLE INFORMADOS.codigo_postal
 
 ---------------------------------------------------
 -- ELIMINACION DE VISTAS EN CASO DE QUE EXISTAN
@@ -121,8 +116,8 @@ mail nvarchar(255),
 fecha_nacimiento date
 );
 
-CREATE TABLE INFORMADOS.canal(
-id_canal int IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE INFORMADOS.canal_venta(
+id_canal_venta int IDENTITY(1,1) PRIMARY KEY,
 nombre varchar(255),
 costo decimal(18,2)
 );
@@ -330,16 +325,16 @@ CREATE PROCEDURE sp_migrar_cliente
   END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_canal')
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_canal_venta')
 	DROP PROCEDURE sp_migrar_canal
 GO
 
-CREATE PROCEDURE sp_migrar_canal
+CREATE PROCEDURE sp_migrar_canal_venta
  AS
   BEGIN
-    INSERT INTO INFORMADOS.canal (nombre, costo)
+    INSERT INTO INFORMADOS.canal_venta (nombre, costo)
 	SELECT DISTINCT VENTA_CANAL, VENTA_CANAL_COSTO
-	FROM gd_esquema.Maestra
+	FROM gd_esquema.Maestra where VENTA_CANAL
   END
 GO
 
@@ -350,9 +345,23 @@ GO
 CREATE PROCEDURE sp_migrar_envio
  AS
   BEGIN
-    INSERT INTO INFORMADOS.envio (medio, precio)
-	SELECT DISTINCT VENTA_MEDIO_ENVIO, VENTA_ENVIO_PRECIO
-	FROM gd_esquema.Maestra
+    with tmp_table as (
+	select distinct
+		m1.VENTA_CODIGO,
+		me.id_metodo_envio,
+		prov.id_provincia,
+		m1.VENTA_ENVIO_PRECIO
+	from gd_esquema.Maestra m1
+	join INFORMADOS.metodo_envio me
+		on m1.VENTA_MEDIO_ENVIO=me.medio
+	join INFORMADOS.provincia prov 
+		on m1.CLIENTE_PROVINCIA = prov.nombre)
+   insert into INFORMADOS.envio(id_metodo_envio,id_provincia,precio)
+	select 
+		id_metodo_envio,
+		id_provincia,
+		VENTA_ENVIO_PRECIO
+	from tmp_table
   END
 GO
 
