@@ -321,9 +321,12 @@ GO
 CREATE PROCEDURE sp_migrar_cliente
  AS
   BEGIN
-    INSERT INTO INFORMADOS.cliente (dni, nombre, apellido, direccion, telefono, mail, fecha_nacimiento, localidad, codigo_postal, provincia)
-	SELECT DISTINCT CLIENTE_DNI, CLIENTE_NOMBRE, CLIENTE_APELLIDO, CLIENTE_DIRECCION, CLIENTE_TELEFONO, CLIENTE_MAIL, CLIENTE_FECHA_NAC, CLIENTE_LOCALIDAD, CLIENTE_CODIGO_POSTAL, CLIENTE_PROVINCIA
-	FROM gd_esquema.Maestra
+	INSERT INTO INFORMADOS.cliente (id_zona,dni, nombre, apellido, direccion, telefono, mail, fecha_nacimiento)
+		SELECT DISTINCT zon.id_zona,mae.CLIENTE_DNI, mae.CLIENTE_NOMBRE, mae.CLIENTE_APELLIDO, mae.CLIENTE_DIRECCION, mae.CLIENTE_TELEFONO, mae.CLIENTE_MAIL, mae.CLIENTE_FECHA_NAC
+		FROM gd_esquema.Maestra mae
+		join INFORMADOS.zona zon
+		on mae.CLIENTE_LOCALIDAD = zon.localidad and mae.CLIENTE_CODIGO_POSTAL = zon.codigo_postal
+		where mae.CLIENTE_DNI is not null
   END
 GO
 
