@@ -46,10 +46,20 @@ nombre varchar(255),
 costo decimal(18,2)
 );
 
-CREATE TABLE INFORMADOS.medio_pago(
-id_medio_pago int identity(1,1) PRIMARY KEY,
-medio_pago nvarchar(255),
+CREATE TABLE INFORMADOS.medio_pago_venta(
+id_medio_pago_venta int identity(1,1) PRIMARY KEY,
+nombre nvarchar(255),
 costo decimal(18,2)
+);
+
+CREATE TABLE INFORMADOS.medio_pago_compra(
+id_medio_pago_compra int identity(1,1) PRIMARY KEY,
+nombre nvarchar(255),
+);
+
+CREATE TABLE INFORMADOS.descuento_compra(
+id_descuento_compra decimal(19,0) PRIMARY KEY,
+valor decimal(18,2)
 );
 
 CREATE TABLE INFORMADOS.metodo_envio(
@@ -73,12 +83,29 @@ fecha date,
 id_cliente int,
 id_canal int,
 id_envio int,
-id_medio_pago INT,
+id_medio_pago_venta INT,
 total decimal(18,2),
 FOREIGN KEY (id_cliente) REFERENCES INFORMADOS.cliente(id_cliente),
 FOREIGN KEY (id_canal) REFERENCES INFORMADOS.canal(id_canal),
 FOREIGN KEY (id_envio) REFERENCES INFORMADOS.envio(id_envio),
-FOREIGN KEY (id_medio_pago) REFERENCES INFORMADOS.medio_pago(id_medio_pago)
+FOREIGN KEY (id_medio_pago_venta) REFERENCES INFORMADOS.medio_pago_venta(id_medio_pago_venta)
+);
+
+CREATE TABLE INFORMADOS.categoria_producto(
+id_categoria int identity(1,1) PRIMARY KEY,
+nombre nvarchar(255)
+);
+
+CREATE TABLE INFORMADOS.producto(
+id_producto nvarchar(50) PRIMARY KEY,
+nombre nvarchar(255),
+descripcion nvarchar(255),
+material nvarchar(255),
+marca nvarchar(255),
+-- id_variante int,
+id_categoria int,
+-- FOREIGN KEY (id_variante) REFERENCES INFORMADOS.variante(id_variante),
+FOREIGN KEY (id_categoria) REFERENCES INFORMADOS.categoria_producto(id_categoria)
 );
 
 CREATE TABLE INFORMADOS.descuento(
@@ -109,10 +136,7 @@ FOREIGN KEY (id_venta) REFERENCES INFORMADOS.venta(id_venta),
 FOREIGN KEY (id_cupon) REFERENCES INFORMADOS.cupon(id_cupon)
 );
 
-CREATE TABLE INFORMADOS.categoria_producto(
-id_categoria int identity(1,1) PRIMARY KEY,
-nombre nvarchar(255)
-);
+
 
 CREATE TABLE INFORMADOS.tipo_variante(
 id_tipo_variante int identity(1,1) PRIMARY KEY,
@@ -120,23 +144,18 @@ tipo nvarchar(50)
 );
 
 CREATE TABLE INFORMADOS.variante(
-id_variante int identity(1,1) PRIMARY KEY,
+id_variante nvarchar(50) PRIMARY KEY,
 nombre nvarchar(50),
-precio decimal(18,6),
 id_tipo_variante int,
 FOREIGN KEY (id_tipo_variante) REFERENCES INFORMADOS.tipo_variante(id_tipo_variante)
 );
 
-CREATE TABLE INFORMADOS.producto(
-id_producto nvarchar(50) PRIMARY KEY,
-nombre nvarchar(255),
-descripcion nvarchar(255),
-material nvarchar(255),
-marca nvarchar(255),
--- id_variante int,
-id_categoria int,
--- FOREIGN KEY (id_variante) REFERENCES INFORMADOS.variante(id_variante),
-FOREIGN KEY (id_categoria) REFERENCES INFORMADOS.categoria_producto(id_categoria)
+CREATE TABLE INFORMADOS.variante_producto(
+id_variante_producto int identity(1,1) PRIMARY KEY,
+id_variante nvarchar(50),
+id_producto nvarchar(50),
+FOREIGN KEY (id_variante) REFERENCES INFORMADOS.variante(id_variante),
+FOREIGN KEY (id_producto) REFERENCES INFORMADOS.producto(id_producto)
 );
 
 CREATE TABLE INFORMADOS.producto_por_venta(
@@ -161,10 +180,12 @@ CREATE TABLE INFORMADOS.compra(
 id_compra decimal(19,0) PRIMARY KEY,
 id_proveedor nvarchar(50),
 fecha date,
-medio_pago nvarchar(255),
-descuento decimal(18,0),
+id_medio_pago int,
+id_descuento decimal(19,0),
 total decimal(18,2),
-FOREIGN KEY (id_proveedor) REFERENCES INFORMADOS.proveedor(id_proveedor)
+FOREIGN KEY (id_proveedor) REFERENCES INFORMADOS.proveedor(id_proveedor),
+FOREIGN KEY (id_medio_pago) REFERENCES INFORMADOS.medio_pago_compra(id_medio_pago_compra),
+FOREIGN KEY (id_descuento) REFERENCES INFORMADOS.descuento_compra(id_descuento_compra)
 );
 
 CREATE TABLE INFORMADOS.producto_por_compra(

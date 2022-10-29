@@ -1,3 +1,5 @@
+USE GD2C2022
+
 ---------------------------------------------------
 --CREACION DE STORE PROCEDURES
 ---------------------------------------------------
@@ -128,13 +130,13 @@ BEGIN
 	FROM gd_esquema.Maestra
 	where PRODUCTO_TIPO_VARIANTE is not null
 
-	INSERT INTO INFORMADOS.variante(nombre, id_tipo_variante)
-	SELECT DISTINCT PRODUCTO_VARIANTE,
+	INSERT INTO INFORMADOS.variante(id_variante, nombre, id_tipo_variante)
+	SELECT DISTINCT PRODUCTO_VARIANTE_CODIGO, PRODUCTO_VARIANTE,
 		(select tp.id_tipo_variante
 		from INFORMADOS.tipo_variante tp
 		where tp.tipo = PRODUCTO_TIPO_VARIANTE)
 	FROM gd_esquema.Maestra
-	where PRODUCTO_VARIANTE is not null
+	where PRODUCTO_VARIANTE_CODIGO is not null and PRODUCTO_VARIANTE is not null
 END
 GO
 
@@ -160,47 +162,138 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_medio_pago')
-	DROP PROCEDURE sp_migrar_medio_pago
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_envio')
+	DROP PROCEDURE sp_migrar_envio
 GO
 
-CREATE PROCEDURE sp_migrar_medio_pago
+CREATE PROCEDURE sp_migrar_envio
 AS
 BEGIN
-	INSERT INTO INFORMADOS.medio_pago(medio_pago, costo)
-	SELECT DISTINCT VENTA_MEDIO_PAGO, VENTA_MEDIO_PAGO_COSTO
+	INSERT INTO INFORMADOS.metodo_envio (nombre)
+	SELECT DISTINCT VENTA_MEDIO_ENVIO
 	FROM gd_esquema.Maestra
-	where VENTA_MEDIO_PAGO is not null
+	where VENTA_MEDIO_ENVIO is not null
+
+	INSERT INTO INFORMADOS.envio(id_metodo_envio, id_zona, precio)
+	SELECT DISTINCT m.id_metodo_envio, z.id_zona, VENTA_ENVIO_PRECIO
+	FROM gd_esquema.Maestra ma
+	inner join INFORMADOS.metodo_envio m on m.nombre = ma.VENTA_MEDIO_ENVIO
+	inner join INFORMADOS.zona z on z.codigo_postal = CLIENTE_CODIGO_POSTAL and
+		z.localidad = CLIENTE_LOCALIDAD
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_venta')
-	DROP PROCEDURE sp_migrar_venta
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_medio_pago_venta')
+	DROP PROCEDURE sp_migrar_medio_pago_venta
 GO
-/*
-CREATE PROCEDURE sp_migrar_venta
- AS
-  BEGIN
-    INSERT INTO INFORMADOS.venta(codigo_venta, fecha,id_cliente, id_canal, id_envio, id_medio_pago, total)
-    SELECT DISTINCT origen.VENTA_CODIGO, origen.VENTA_FECHA, cliente.id_cliente, canal.id_canal, envio.id_envio, mediopago.id_medio_pago, origen.VENTA_TOTAL
-	FROM gd_esquema.Maestra AS origen
-	join INFORMADOS.cliente cliente on origen.CLIENTE_NOMBRE = cliente.nombre and
-		origen.CLIENTE_APELLIDO = cliente.apellido and
-		origen.CLIENTE_DNI = cliente.dni and
-		origen.CLIENTE_DIRECCION = cliente.direccion and
-		origen.CLIENTE_TELEFONO = cliente.telefono and
-		origen.CLIENTE_FECHA_NAC = cliente.fecha_nacimiento and
-		origen.CLIENTE_MAIL = cliente.mail 
-	join INFORMADOS.canal canal on origen.VENTA_CANAL = canal.nombre and
-	    origen.VENTA_CANAL_COSTO = canal.costo
-	join INFORMADOS.envio envio on origen.VENTA_MEDIO_ENVIO = envio.medio and 
-	    origen.VENTA_ENVIO_PRECIO = envio.precio
-	join INFORMADOS.medio_pago mediopago on origen.VENTA_MEDIO_PAGO = mediopago.id_medio_pago and
-	    origen.VENTA_MEDIO_PAGO_COSTO = mediopago.costo
-	WHERE cliente.id_cliente IS NOT NULL and canal.id_canal IS NOT NULL and envio.id_envio IS NOT NULL and mediopago.id_medio_pago IS NOT NULL
-  END
+
+CREATE PROCEDURE sp_migrar_medio_pago_venta
+AS
+BEGIN
+	INSERT INTO INFORMADOS.medio_pago_venta(nombre, costo)
+	SELECT DISTINCT VENTA_MEDIO_PAGO, VENTA_MEDIO_PAGO_COSTO
+	FROM gd_esquema.Maestra
+	where VENTA_MEDIO_PAGO is not null and VENTA_MEDIO_PAGO_COSTO is not null
+	group by VENTA_MEDIO_PAGO, VENTA_MEDIO_PAGO_COSTO
+END
 GO
-*/
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_medio_pago_compra')
+	DROP PROCEDURE sp_migrar_medio_pago_compra
+GO
+
+CREATE PROCEDURE sp_migrar_medio_pago_compra
+AS
+BEGIN
+	INSERT INTO INFORMADOS.medio_pago_compra(nombre)
+	SELECT DISTINCT COMPRA_MEDIO_PAGO
+	FROM gd_esquema.Maestra
+	where COMPRA_MEDIO_PAGO is not null 
+	group by COMPRA_MEDIO_PAGO
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_descuento_compra')
+	DROP PROCEDURE sp_migrar_descuento_compra
+GO
+
+CREATE PROCEDURE sp_migrar_descuento_compra
+AS
+BEGIN
+	INSERT INTO INFORMADOS.descuento_compra(id_descuento_compra, valor)
+	SELECT DISTINCT DESCUENTO_COMPRA_CODIGO, DESCUENTO_COMPRA_VALOR
+	FROM gd_esquema.Maestra
+	where DESCUENTO_COMPRA_CODIGO is not null and DESCUENTO_COMPRA_VALOR is not null
+	group by DESCUENTO_COMPRA_CODIGO, DESCUENTO_COMPRA_VALOR
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_variante_producto')
+	DROP PROCEDURE sp_migrar_variante_producto
+GO
+
+CREATE PROCEDURE sp_migrar_variante_producto
+AS
+BEGIN
+	INSERT INTO INFORMADOS.variante_producto (id_variante, id_producto)
+	SELECT DISTINCT 
+		(select variante.id_variante
+		from INFORMADOS.variante variante
+		where variante.id_variante = PRODUCTO_VARIANTE_CODIGO),
+		(select prod.id_producto
+		from INFORMADOS.producto prod
+		where prod.id_producto = PRODUCTO_CODIGO)
+	FROM gd_esquema.Maestra
+	where PRODUCTO_VARIANTE_CODIGO is not null and PRODUCTO_CODIGO is not null 
+	GROUP BY PRODUCTO_VARIANTE_CODIGO, PRODUCTO_CODIGO
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_compra')
+	DROP PROCEDURE sp_migrar_compra
+GO
+
+CREATE PROCEDURE sp_migrar_compra
+AS
+BEGIN
+	INSERT INTO INFORMADOS.compra (id_compra, id_proveedor, fecha, id_medio_pago, id_descuento, total)
+	SELECT DISTINCT COMPRA_NUMERO, (select prov.id_proveedor from INFORMADOS.proveedor prov where prov.id_proveedor = PROVEEDOR_CUIT), COMPRA_FECHA, 		(select mpc.id_medio_pago_compra from INFORMADOS.medio_pago_compra mpc where mpc.nombre = COMPRA_MEDIO_PAGO), (select dc.id_descuento_compra from INFORMADOS.descuento_compra dc where dc.id_descuento_compra = DESCUENTO_COMPRA_CODIGO), COMPRA_TOTAL
+	FROM gd_esquema.Maestra
+	where COMPRA_NUMERO is not null and PROVEEDOR_CUIT is not null and COMPRA_FECHA is not null and COMPRA_MEDIO_PAGO is not null and DESCUENTO_COMPRA_CODIGO is not null and COMPRA_TOTAL is not null
+	GROUP BY COMPRA_NUMERO, PROVEEDOR_CUIT, COMPRA_FECHA, COMPRA_MEDIO_PAGO, DESCUENTO_COMPRA_CODIGO, COMPRA_TOTAL
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_producto_por_compra')
+	DROP PROCEDURE sp_migrar_producto_por_compra
+GO
+
+CREATE PROCEDURE sp_migrar_producto_por_compra
+AS
+BEGIN
+	INSERT INTO INFORMADOS.producto_por_compra (id_compra, id_producto, cantidad, precio)
+	SELECT DISTINCT (select compra.id_compra
+		from INFORMADOS.compra compra
+		join INFORMADOS.proveedor prov
+		   on prov.id_proveedor = compra.id_proveedor
+		join INFORMADOS.medio_pago_compra mpc
+		   on mpc.id_medio_pago_compra = compra.id_medio_pago
+		join INFORMADOS.descuento_compra dc
+		   on dc.id_descuento_compra = compra.id_descuento
+		where compra.id_compra = COMPRA_NUMERO and prov.id_proveedor = PROVEEDOR_CUIT and mpc.nombre = COMPRA_MEDIO_PAGO and dc.id_descuento_compra = DESCUENTO_COMPRA_CODIGO),
+		(select prod.id_producto
+		from INFORMADOS.producto prod
+		join INFORMADOS.categoria_producto cp
+		   on cp.id_categoria = prod.id_categoria
+		where prod.id_producto = PRODUCTO_CODIGO and cp.nombre = PRODUCTO_CATEGORIA),
+		COMPRA_PRODUCTO_CANTIDAD,
+		COMPRA_PRODUCTO_PRECIO 
+	FROM gd_esquema.Maestra
+	where COMPRA_NUMERO is not null and PRODUCTO_CODIGO is not null and PROVEEDOR_CUIT is not null and COMPRA_MEDIO_PAGO is not null and DESCUENTO_COMPRA_CODIGO is not null and COMPRA_PRODUCTO_CANTIDAD is not null and COMPRA_PRODUCTO_PRECIO is not null and PRODUCTO_CATEGORIA is not null
+	GROUP BY COMPRA_NUMERO, PRODUCTO_CODIGO, PROVEEDOR_CUIT, COMPRA_MEDIO_PAGO, DESCUENTO_COMPRA_CODIGO, COMPRA_PRODUCTO_CANTIDAD, COMPRA_PRODUCTO_PRECIO, PRODUCTO_CATEGORIA
+END
+GO
+
 
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
@@ -212,9 +305,13 @@ EXECUTE sp_migrar_cliente
 EXECUTE sp_migrar_variante
 EXECUTE sp_migrar_canal
 EXECUTE sp_migrar_envio
-EXECUTE sp_migrar_medio_pago
+EXECUTE sp_migrar_medio_pago_venta
 EXECUTE sp_migrar_proveedor
---EXECUTE sp_migrar_proveedor
+EXECUTE sp_migrar_medio_pago_compra
+EXECUTE sp_migrar_descuento_compra
+EXECUTE sp_migrar_variante_producto
+EXECUTE sp_migrar_compra
+EXECUTE sp_migrar_producto_por_compra
 
 /*
  BEGIN TRANSACTION
