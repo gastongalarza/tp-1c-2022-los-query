@@ -272,25 +272,13 @@ CREATE PROCEDURE sp_migrar_producto_por_compra
 AS
 BEGIN
 	INSERT INTO INFORMADOS.producto_por_compra (id_compra, id_producto, cantidad, precio)
-	SELECT DISTINCT (select compra.id_compra
-		from INFORMADOS.compra compra
-		join INFORMADOS.proveedor prov
-		   on prov.id_proveedor = compra.id_proveedor
-		join INFORMADOS.medio_pago_compra mpc
-		   on mpc.id_medio_pago_compra = compra.id_medio_pago
-		join INFORMADOS.descuento_compra dc
-		   on dc.id_descuento_compra = compra.id_descuento
-		where compra.id_compra = COMPRA_NUMERO and prov.id_proveedor = PROVEEDOR_CUIT and mpc.nombre = COMPRA_MEDIO_PAGO and dc.id_descuento_compra = DESCUENTO_COMPRA_CODIGO),
-		(select prod.id_producto
-		from INFORMADOS.producto prod
-		join INFORMADOS.categoria_producto cp
-		   on cp.id_categoria = prod.id_categoria
-		where prod.id_producto = PRODUCTO_CODIGO and cp.nombre = PRODUCTO_CATEGORIA),
-		COMPRA_PRODUCTO_CANTIDAD,
-		COMPRA_PRODUCTO_PRECIO 
-	FROM gd_esquema.Maestra
-	where COMPRA_NUMERO is not null and PRODUCTO_CODIGO is not null and PROVEEDOR_CUIT is not null and COMPRA_MEDIO_PAGO is not null and DESCUENTO_COMPRA_CODIGO is not null and COMPRA_PRODUCTO_CANTIDAD is not null and COMPRA_PRODUCTO_PRECIO is not null and PRODUCTO_CATEGORIA is not null
-	GROUP BY COMPRA_NUMERO, PRODUCTO_CODIGO, PROVEEDOR_CUIT, COMPRA_MEDIO_PAGO, DESCUENTO_COMPRA_CODIGO, COMPRA_PRODUCTO_CANTIDAD, COMPRA_PRODUCTO_PRECIO, PRODUCTO_CATEGORIA
+	SELECT DISTINCT comp.id_compra, p.id_producto, ma.COMPRA_PRODUCTO_CANTIDAD, ma.COMPRA_PRODUCTO_PRECIO
+	FROM gd_esquema.Maestra ma
+	join INFORMADOS.compra comp
+	    on comp.id_compra = ma.COMPRA_NUMERO
+	join INFORMADOS.producto p
+	   on p.id_producto = ma.PRODUCTO_CODIGO
+	WHERE ma.DESCUENTO_COMPRA_CODIGO is not null and  ma.PRODUCTO_VARIANTE_CODIGO is not null and ma.PRODUCTO_CODIGO is not null
 END
 GO
 
@@ -303,7 +291,6 @@ EXECUTE sp_migrar_ubicaciones
 EXECUTE sp_migrar_producto
 EXECUTE sp_migrar_cliente
 EXECUTE sp_migrar_variante
-EXECUTE sp_migrar_canal
 EXECUTE sp_migrar_envio
 EXECUTE sp_migrar_medio_pago_venta
 EXECUTE sp_migrar_proveedor
