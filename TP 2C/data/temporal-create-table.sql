@@ -80,20 +80,25 @@ FOREIGN KEY (id_envio) REFERENCES INFORMADOS.envio(id_envio),
 FOREIGN KEY (id_medio_pago_venta) REFERENCES INFORMADOS.medio_pago_venta(id_medio_pago_venta)
 );
 
-CREATE TABLE INFORMADOS.descuento_venta(
-id_descuento_venta int identity(1,1) PRIMARY KEY,
-id_medio_pago_venta int,
-importe decimal(18,2)
-FOREIGN KEY (id_medio_pago_venta) REFERENCES INFORMADOS.medio_pago_venta(id_medio_pago_venta)
+
+CREATE TABLE INFORMADOS.tipo_descuento_venta(
+id_tipo_descuento_venta int identity(1,1) PRIMARY KEY,
+concepto_descuento varchar(60)
 );
 
+CREATE TABLE INFORMADOS.descuento_venta(
+id_descuento_venta int identity(2000,1) PRIMARY KEY,
+id_medio_pago_venta int,
+id_tipo_descuento_venta int,
+importe_descuento decimal(18,2),
+FOREIGN KEY (id_medio_pago_venta) REFERENCES INFORMADOS.medio_pago_venta(id_medio_pago_venta),
+FOREIGN KEY (id_tipo_descuento_venta) REFERENCES INFORMADOS.tipo_descuento_venta(id_tipo_descuento_venta)
+);
 
 CREATE TABLE INFORMADOS.descuento_por_venta(
 id_descuento_venta int,
-id_venta bigint,
-PRIMARY KEY (id_descuento_venta, id_venta),
-FOREIGN KEY (id_descuento_venta) REFERENCES INFORMADOS.descuento_venta(id_descuento_venta),
-FOREIGN KEY (id_venta) REFERENCES INFORMADOS.venta(id_venta)
+id_venta int,
+FOREIGN KEY (id_descuento_venta) REFERENCES INFORMADOS.descuento_venta(id_descuento_venta)
 );
 
 CREATE TABLE INFORMADOS.cupon(

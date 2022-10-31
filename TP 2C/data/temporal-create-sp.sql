@@ -282,6 +282,40 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE sp_migrar_tipo_descuento_venta
+ AS
+  BEGIN
+    INSERT INTO INFORMADOS.tipo_descuento_venta (concepto_descuento)
+		select distinct VENTA_DESCUENTO_CONCEPTO 
+		from gd_esquema.Maestra where VENTA_DESCUENTO_CONCEPTO is not null
+END
+GO
+
+CREATE PROCEDURE sp_migrar_descuento_venta
+ AS
+  BEGIN
+
+  	INSERT INTO INFORMADOS.descuento_venta(id_medio_pago_venta,id_tipo_descuento_venta,importe_descuento)
+		select tt.id_medio_pago,tt.id_tipo_descuento_venta,VENTA_DESCUENTO_IMPORTE
+		from (SELECT distinct VENTA_CODIGO,mp.id_medio_pago,td.id_tipo_descuento_venta,VENTA_DESCUENTO_IMPORTE
+				FROM gd_esquema.Maestra m1
+				left join INFORMADOS.medio_pago_venta mp
+				on m1.VENTA_DESCUENTO_CONCEPTO = mp.medio_pago
+				left join INFORMADOS.tipo_descuento_venta td
+				on m1.VENTA_DESCUENTO_CONCEPTO=td.concepto_descuento
+				where m1.VENTA_DESCUENTO_CONCEPTO is not null ) tt
+
+    INSERT INTO INFORMADOS.descuento_por_venta(id_descuento_venta,id_venta)
+		select distinct dd.id_descuento_venta,m1.VENTA_CODIGO
+		from INFORMADOS.descuento_venta dd
+		join INFORMADOS.tipo_descuento_venta td
+		on dd.id_tipo_descuento_venta = td.id_tipo_descuento_venta
+		join (select distinct VENTA_CODIGO,VENTA_DESCUENTO_IMPORTE,VENTA_DESCUENTO_CONCEPTO 		from gd_esquema.Maestra where VENTA_DESCUENTO_IMPORTE is not null) m1
+		on dd.importe_descuento  = m1.VENTA_DESCUENTO_IMPORTE and td.concepto_descuento = 		m1.VENTA_DESCUENTO_CONCEPTO
+
+END
+GO
+
 
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
