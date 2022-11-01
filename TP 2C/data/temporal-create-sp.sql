@@ -214,10 +214,8 @@ BEGIN
 	mediopago.id_medio_pago,
 	origen.VENTA_FECHA,
 	origen.VENTA_TOTAL
-	FROM (
-			select distinct VENTA_CODIGO,VENTA_FECHA,VENTA_CANAL,CLIENTE_PROVINCIA,VENTA_ENVIO_PRECIO,VENTA_MEDIO_ENVIO,VENTA_MEDIO_PAGO,CLIENTE_DNI,CLIENTE_NOMBRE,VENTA_TOTAL,CLIENTE_CODIGO_POSTAL,CLIENTE_LOCALIDAD
-			from gd_esquema.Maestra where venta_codigo is not null
-			) AS origen
+	FROM (	select distinct VENTA_CODIGO,VENTA_FECHA,VENTA_CANAL,CLIENTE_PROVINCIA,VENTA_ENVIO_PRECIO,VENTA_MEDIO_ENVIO,VENTA_MEDIO_PAGO,CLIENTE_DNI,CLIENTE_NOMBRE,VENTA_TOTAL,CLIENTE_CODIGO_POSTAL,CLIENTE_LOCALIDAD
+		from gd_esquema.Maestra where venta_codigo is not null) AS origen
 	join INFORMADOS.cliente cliente on	origen.CLIENTE_DNI = cliente.dni and origen.CLIENTE_NOMBRE = cliente.nombre
 	join INFORMADOS.canal_venta canal on origen.VENTA_CANAL = canal.nombre
 	join INFORMADOS.medio_pago_venta mediopago on origen.VENTA_MEDIO_PAGO = mediopago.medio_pago
