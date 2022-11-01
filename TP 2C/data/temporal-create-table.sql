@@ -188,7 +188,7 @@ id_zona int REFERENCES INFORMADOS.zona(id_zona)
 );
 
 CREATE TABLE INFORMADOS.compra(
-id_compra decimal(19,0) PRIMARY KEY,
+id_compra int PRIMARY KEY,
 id_proveedor nvarchar(50),
 fecha date,
 id_medio_pago int,
@@ -200,9 +200,10 @@ FOREIGN KEY (id_descuento) REFERENCES INFORMADOS.descuento_compra(id_descuento_c
 );
 
 CREATE TABLE INFORMADOS.producto_por_compra(
-id_compra decimal(19,0),
+id_compra int,
 id_producto nvarchar(50),
-cantidad decimal(18,0),
+cantidad int,
+precio_unidad decimal(18,2),
 FOREIGN KEY (id_compra) REFERENCES INFORMADOS.compra(id_compra),
 FOREIGN KEY (id_producto) REFERENCES INFORMADOS.producto(id_producto)
 );
