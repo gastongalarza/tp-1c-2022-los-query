@@ -209,16 +209,16 @@ BEGIN
     SELECT DISTINCT 
 	origen.VENTA_CODIGO,
 	cliente.id_cliente,
-	canal.id_canal,
+	canal.id_canal_venta,
 	envio.id_envio,
-	mediopago.id_medio_pago,
+	mediopago.id_medio_pago_venta,
 	origen.VENTA_FECHA,
 	origen.VENTA_TOTAL
 	FROM (	select distinct VENTA_CODIGO,VENTA_FECHA,VENTA_CANAL,CLIENTE_PROVINCIA,VENTA_ENVIO_PRECIO,VENTA_MEDIO_ENVIO,VENTA_MEDIO_PAGO,CLIENTE_DNI,CLIENTE_NOMBRE,VENTA_TOTAL,CLIENTE_CODIGO_POSTAL,CLIENTE_LOCALIDAD
 		from gd_esquema.Maestra where venta_codigo is not null) AS origen
 	join INFORMADOS.cliente cliente on	origen.CLIENTE_DNI = cliente.dni and origen.CLIENTE_NOMBRE = cliente.nombre
 	join INFORMADOS.canal_venta canal on origen.VENTA_CANAL = canal.nombre
-	join INFORMADOS.medio_pago_venta mediopago on origen.VENTA_MEDIO_PAGO = mediopago.medio_pago
+	join INFORMADOS.medio_pago_venta mediopago on origen.VENTA_MEDIO_PAGO = mediopago.nombre
 	join (select env.*,me.nombre,zon.localidad,zon.codigo_postal
 			from INFORMADOS.envio env 
 			join INFORMADOS.metodo_envio me on env.id_metodo_envio=me.id_metodo_envio
@@ -400,7 +400,7 @@ CREATE PROCEDURE sp_migrar_cupon
 	WHERE VENTA_CUPON_CODIGO is not null and VENTA_CUPON_TIPO is not null and VENTA_CUPON_VALOR is not null and VENTA_CUPON_FECHA_DESDE is not null and VENTA_CUPON_FECHA_HASTA is not null
 	group by VENTA_CUPON_CODIGO, VENTA_CUPON_TIPO, VENTA_CUPON_VALOR, VENTA_CUPON_FECHA_DESDE, VENTA_CUPON_FECHA_HASTA
 
-	INSERT INTO INFORMADOS.cupones_por_venta(id_venta,id_cupon,importe_cupon)
+	INSERT INTO INFORMADOS.cupon_por_venta(id_venta,id_cupon,importe_cupon)
 	select VENTA_CODIGO,VENTA_CUPON_CODIGO,VENTA_CUPON_IMPORTE
 	from gd_esquema.Maestra
 	where VENTA_CODIGO is not null and VENTA_CUPON_CODIGO is not null
