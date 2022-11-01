@@ -374,7 +374,7 @@ CREATE PROCEDURE sp_migrar_cupon
  AS
   BEGIN
 
-  	INSERT INTO INFORMADOS.cupon(codigo, id_tipo_cupon, valor, fecha_inicial, fecha_final)
+  	INSERT INTO INFORMADOS.cupon(id_cupon, id_tipo_cupon, valor, fecha_inicial, fecha_final)
 	select DISTINCT VENTA_CUPON_CODIGO,
 	           (SELECT tc.id_tipo_cupon
 	            from INFORMADOS.tipo_cupon tc
