@@ -314,16 +314,6 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_producto_p
 	DROP PROCEDURE sp_migrar_producto_por_compra
 GO
 
-CREATE PROCEDURE sp_migrar_producto_por_venta
-AS
-BEGIN
-	INSERT INTO INFORMADOS.producto_por_venta (id_compra, id_producto, cantidad,precio_unidad)
-		select distinct COMPRA_NUMERO,PRODUCTO_CODIGO,COMPRA_PRODUCTO_CANTIDAD,COMPRA_PRODUCTO_PRECIO
-	FROM gd_esquema.Maestra 
-	where PRODUCTO_CODIGO is not null and COMPRA_NUMERO is not null
-END
-GO
-
 
 CREATE PROCEDURE sp_migrar_producto_por_compra
 AS
