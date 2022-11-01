@@ -118,8 +118,7 @@ FOREIGN KEY (id_tipo_cupon) REFERENCES INFORMADOS.tipo_cupon(id_tipo_cupon)
 CREATE TABLE INFORMADOS.cupon_por_venta(
 id_venta bigint,
 id_cupon nvarchar(255),
-importe decimal(18,2),
-PRIMARY KEY (id_venta, id_cupon),
+importe_cupon decimal(18,2),
 FOREIGN KEY (id_venta) REFERENCES INFORMADOS.venta(id_venta),
 FOREIGN KEY (id_cupon) REFERENCES INFORMADOS.cupon(id_cupon)
 );

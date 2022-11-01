@@ -382,6 +382,11 @@ CREATE PROCEDURE sp_migrar_cupon
 	FROM gd_esquema.Maestra 
 	WHERE VENTA_CUPON_CODIGO is not null and VENTA_CUPON_TIPO is not null and VENTA_CUPON_VALOR is not null and VENTA_CUPON_FECHA_DESDE is not null and VENTA_CUPON_FECHA_HASTA is not null
 	group by VENTA_CUPON_CODIGO, VENTA_CUPON_TIPO, VENTA_CUPON_VALOR, VENTA_CUPON_FECHA_DESDE, VENTA_CUPON_FECHA_HASTA
+
+	INSERT INTO INFORMADOS.cupones_por_venta(id_venta,id_cupon,importe_cupon)
+	select VENTA_CODIGO,VENTA_CUPON_CODIGO,VENTA_CUPON_IMPORTE
+	from gd_esquema.Maestra
+	where VENTA_CODIGO is not null and VENTA_CUPON_CODIGO is not null
 END
 GO
 
