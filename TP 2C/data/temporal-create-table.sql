@@ -83,7 +83,7 @@ FOREIGN KEY (id_medio_pago_venta) REFERENCES INFORMADOS.medio_pago_venta(id_medi
 
 CREATE TABLE INFORMADOS.tipo_descuento_venta(
 id_tipo_descuento_venta int identity(1,1) PRIMARY KEY,
-concepto_descuento varchar(60)
+concepto_descuento nvarchar(255)
 );
 
 CREATE TABLE INFORMADOS.descuento_venta(
@@ -101,19 +101,25 @@ id_venta int,
 FOREIGN KEY (id_descuento_venta) REFERENCES INFORMADOS.descuento_venta(id_descuento_venta)
 );
 
+CREATE TABLE INFORMADOS.tipo_cupon(
+id_tipo_cupon int IDENTITY(1,1) PRIMARY KEY,
+cupon_tipo nvarchar(50),
+);
+
 CREATE TABLE INFORMADOS.cupon(
 id_cupon int IDENTITY(1,1) PRIMARY KEY,
 codigo nvarchar(255),
-tipo nvarchar(50),
+id_tipo_cupon int,
 valor decimal(18,2),
-importe decimal(18,2),
 fecha_inicial date,
-fecha_final date
+fecha_final date,
+FOREIGN KEY (id_tipo_cupon) REFERENCES INFORMADOS.tipo_cupon(id_tipo_cupon)
 );
 
 CREATE TABLE INFORMADOS.cupon_por_venta(
 id_venta bigint,
 id_cupon int,
+importe decimal(18,2),
 PRIMARY KEY (id_venta, id_cupon),
 FOREIGN KEY (id_venta) REFERENCES INFORMADOS.venta(id_venta),
 FOREIGN KEY (id_cupon) REFERENCES INFORMADOS.cupon(id_cupon)

@@ -282,6 +282,10 @@ BEGIN
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_tipo_descuento_venta')
+	DROP PROCEDURE sp_migrar_tipo_descuento_venta
+GO
+
 CREATE PROCEDURE sp_migrar_tipo_descuento_venta
  AS
   BEGIN
@@ -291,16 +295,20 @@ CREATE PROCEDURE sp_migrar_tipo_descuento_venta
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_descuento_venta')
+	DROP PROCEDURE sp_migrar_descuento_venta
+GO
+
 CREATE PROCEDURE sp_migrar_descuento_venta
  AS
   BEGIN
 
   	INSERT INTO INFORMADOS.descuento_venta(id_medio_pago_venta,id_tipo_descuento_venta,importe_descuento)
-		select tt.id_medio_pago,tt.id_tipo_descuento_venta,VENTA_DESCUENTO_IMPORTE
-		from (SELECT distinct VENTA_CODIGO,mp.id_medio_pago,td.id_tipo_descuento_venta,VENTA_DESCUENTO_IMPORTE
+		select tt.id_medio_pago_venta,tt.id_tipo_descuento_venta,VENTA_DESCUENTO_IMPORTE
+		from (SELECT distinct VENTA_CODIGO,mp.id_medio_pago_venta,td.id_tipo_descuento_venta,VENTA_DESCUENTO_IMPORTE
 				FROM gd_esquema.Maestra m1
 				left join INFORMADOS.medio_pago_venta mp
-				on m1.VENTA_DESCUENTO_CONCEPTO = mp.medio_pago
+				on m1.VENTA_DESCUENTO_CONCEPTO = mp.nombre
 				left join INFORMADOS.tipo_descuento_venta td
 				on m1.VENTA_DESCUENTO_CONCEPTO=td.concepto_descuento
 				where m1.VENTA_DESCUENTO_CONCEPTO is not null ) tt
@@ -316,6 +324,40 @@ CREATE PROCEDURE sp_migrar_descuento_venta
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_tipo_cupon')
+	DROP PROCEDURE sp_migrar_tipo_cupon
+GO
+
+CREATE PROCEDURE sp_migrar_tipo_cupon
+ AS
+  BEGIN
+
+  	INSERT INTO INFORMADOS.tipo_cupon(cupon_tipo)
+		select distinct VENTA_CUPON_TIPO
+		from gd_esquema.Maestra where VENTA_CUPON_TIPO is not null
+
+END
+GO
+
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_cupon')
+	DROP PROCEDURE sp_migrar_cupon
+GO
+
+CREATE PROCEDURE sp_migrar_cupon
+ AS
+  BEGIN
+
+  	INSERT INTO INFORMADOS.cupon(codigo, id_tipo_cupon, valor, fecha_inicial, fecha_final)
+	select DISTINCT VENTA_CUPON_CODIGO,
+	           (SELECT tc.id_tipo_cupon
+	            from INFORMADOS.tipo_cupon tc
+				where VENTA_CUPON_TIPO = tc.cupon_tipo), VENTA_CUPON_VALOR, VENTA_CUPON_FECHA_DESDE, VENTA_CUPON_FECHA_HASTA
+	FROM gd_esquema.Maestra 
+	WHERE VENTA_CUPON_CODIGO is not null and VENTA_CUPON_TIPO is not null and VENTA_CUPON_VALOR is not null and VENTA_CUPON_FECHA_DESDE is not null and VENTA_CUPON_FECHA_HASTA is not null
+	group by VENTA_CUPON_CODIGO, VENTA_CUPON_TIPO, VENTA_CUPON_VALOR, VENTA_CUPON_FECHA_DESDE, VENTA_CUPON_FECHA_HASTA
+END
+GO
 
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
@@ -333,6 +375,10 @@ EXECUTE sp_migrar_descuento_compra
 EXECUTE sp_migrar_variante_producto
 EXECUTE sp_migrar_compra
 EXECUTE sp_migrar_producto_por_compra
+EXECUTE sp_migrar_tipo_descuento_venta
+EXECUTE sp_migrar_descuento_venta
+EXECUTE sp_migrar_tipo_cupon
+EXECUTE sp_migrar_cupon
 
 /*
  BEGIN TRANSACTION

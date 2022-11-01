@@ -21,6 +21,9 @@ DROP TABLE INFORMADOS.producto_por_venta
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'descuento_venta')
 DROP TABLE INFORMADOS.descuento_venta
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'tipo_descuento_venta')
+DROP TABLE INFORMADOS.tipo_descuento_venta
+
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'venta')
 DROP TABLE INFORMADOS.venta
 
@@ -53,6 +56,9 @@ DROP TABLE INFORMADOS.categoria_producto
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cupon')
 DROP TABLE INFORMADOS.cupon
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'tipo_cupon')
+DROP TABLE INFORMADOS.tipo_cupon
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'canal_venta')
 DROP TABLE INFORMADOS.canal_venta
