@@ -391,6 +391,7 @@ GO
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
 ---------------------------------------------------
 
+EXECUTE sp_migrar_canal
 EXECUTE sp_migrar_ubicaciones
 EXECUTE sp_migrar_producto
 EXECUTE sp_migrar_cliente
