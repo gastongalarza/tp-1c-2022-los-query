@@ -397,6 +397,7 @@ EXECUTE sp_migrar_cliente
 EXECUTE sp_migrar_variante
 EXECUTE sp_migrar_envio
 EXECUTE sp_migrar_medio_pago_venta
+EXECUTE sp_migrar_venta
 EXECUTE sp_migrar_proveedor
 EXECUTE sp_migrar_medio_pago_compra
 EXECUTE sp_migrar_descuento_compra
