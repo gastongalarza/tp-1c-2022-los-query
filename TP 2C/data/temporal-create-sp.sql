@@ -423,6 +423,7 @@ EXECUTE sp_migrar_proveedor
 EXECUTE sp_migrar_medio_pago_compra
 EXECUTE sp_migrar_descuento_compra
 EXECUTE sp_migrar_variante_producto
+EXECUTE sp_migrar_producto_por_venta
 EXECUTE sp_migrar_compra
 EXECUTE sp_migrar_producto_por_compra
 EXECUTE sp_migrar_tipo_descuento_venta
