@@ -89,7 +89,7 @@ GO
 CREATE PROCEDURE sp_migrar_canal
  AS
   BEGIN
-    INSERT INTO INFORMADOS.canal (nombre, costo)
+    INSERT INTO INFORMADOS.canal_venta (nombre, costo)
 	SELECT DISTINCT VENTA_CANAL, VENTA_CANAL_COSTO
 	FROM gd_esquema.Maestra
 	where VENTA_CANAL is not null and VENTA_CANAL_COSTO is not null
@@ -198,6 +198,38 @@ BEGIN
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_venta')
+	DROP PROCEDURE sp_migrar_venta
+GO
+
+CREATE PROCEDURE sp_migrar_venta
+AS
+BEGIN
+	INSERT INTO INFORMADOS.venta(id_venta,id_cliente,id_canal,id_envio,id_medio_pago_venta,fecha,total)
+    SELECT DISTINCT 
+	origen.VENTA_CODIGO,
+	cliente.id_cliente,
+	canal.id_canal,
+	envio.id_envio,
+	mediopago.id_medio_pago,
+	origen.VENTA_FECHA,
+	origen.VENTA_TOTAL
+	FROM (
+			select distinct VENTA_CODIGO,VENTA_FECHA,VENTA_CANAL,CLIENTE_PROVINCIA,VENTA_ENVIO_PRECIO,VENTA_MEDIO_ENVIO,VENTA_MEDIO_PAGO,CLIENTE_DNI,CLIENTE_NOMBRE,VENTA_TOTAL,CLIENTE_CODIGO_POSTAL,CLIENTE_LOCALIDAD
+			from gd_esquema.Maestra where venta_codigo is not null
+			) AS origen
+	join INFORMADOS.cliente cliente on	origen.CLIENTE_DNI = cliente.dni and origen.CLIENTE_NOMBRE = cliente.nombre
+	join INFORMADOS.canal_venta canal on origen.VENTA_CANAL = canal.nombre
+	join INFORMADOS.medio_pago_venta mediopago on origen.VENTA_MEDIO_PAGO = mediopago.medio_pago
+	join (select env.*,me.nombre,zon.localidad,zon.codigo_postal
+			from INFORMADOS.envio env 
+			join INFORMADOS.metodo_envio me on env.id_metodo_envio=me.id_metodo_envio
+			join INFORMADOS.zona zon on env.id_zona=zon.id_zona) envio 
+	on origen.VENTA_MEDIO_ENVIO=envio.nombre and origen.CLIENTE_CODIGO_POSTAL=envio.codigo_postal and origen.CLIENTE_LOCALIDAD=envio.localidad and origen.VENTA_ENVIO_PRECIO=envio.precio
+	where origen.VENTA_CODIGO is not null
+END
+GO
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_medio_pago_compra')
 	DROP PROCEDURE sp_migrar_medio_pago_compra
 GO
@@ -271,14 +303,10 @@ GO
 CREATE PROCEDURE sp_migrar_producto_por_compra
 AS
 BEGIN
-	INSERT INTO INFORMADOS.producto_por_compra (id_compra, id_producto, cantidad, precio)
-	SELECT DISTINCT comp.id_compra, p.id_producto, ma.COMPRA_PRODUCTO_CANTIDAD, ma.COMPRA_PRODUCTO_PRECIO
-	FROM gd_esquema.Maestra ma
-	join INFORMADOS.compra comp
-	    on comp.id_compra = ma.COMPRA_NUMERO
-	join INFORMADOS.producto p
-	   on p.id_producto = ma.PRODUCTO_CODIGO
-	WHERE ma.DESCUENTO_COMPRA_CODIGO is not null and  ma.PRODUCTO_VARIANTE_CODIGO is not null and ma.PRODUCTO_CODIGO is not null
+	INSERT INTO INFORMADOS.producto_por_compra (id_compra, id_producto, cantidad)
+		select distinct COMPRA_NUMERO,PRODUCTO_CODIGO,COMPRA_PRODUCTO_CANTIDAD
+	FROM gd_esquema.Maestra 
+	where PRODUCTO_CODIGO is not null and COMPRA_NUMERO is not null
 END
 GO
 
