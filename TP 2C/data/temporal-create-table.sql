@@ -13,7 +13,7 @@ CREATE SCHEMA INFORMADOS;
 GO
 
 ---------------------------------------------------
--- CREACIÓN DE TABLAS
+-- CREACIÃ“N DE TABLAS
 ---------------------------------------------------
 
 CREATE TABLE INFORMADOS.provincia(
@@ -205,8 +205,6 @@ CREATE TABLE INFORMADOS.producto_por_compra(
 id_compra decimal(19,0),
 id_producto nvarchar(50),
 cantidad decimal(18,0),
-precio decimal(18,2),
-PRIMARY KEY (id_compra, id_producto),
 FOREIGN KEY (id_compra) REFERENCES INFORMADOS.compra(id_compra),
 FOREIGN KEY (id_producto) REFERENCES INFORMADOS.producto(id_producto)
 );
