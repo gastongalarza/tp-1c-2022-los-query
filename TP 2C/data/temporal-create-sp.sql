@@ -279,6 +279,22 @@ BEGIN
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_producto_por_venta')
+	DROP PROCEDURE sp_migrar_producto_por_venta
+GO
+
+CREATE PROCEDURE sp_migrar_producto_por_venta
+AS
+BEGIN
+	insert into INFORMADOS.producto_por_venta(id_venta,id_variante_producto,cantidad,precio_unidad)
+		select ma.VENTA_CODIGO,vp.id_variante_producto,ma.VENTA_PRODUCTO_CANTIDAD,ma.VENTA_PRODUCTO_PRECIO
+		from gd_esquema.Maestra ma
+		join INFORMADOS.producto pr on ma.PRODUCTO_NOMBRE=pr.nombre
+		join INFORMADOS.variante_producto vp on vp.id_producto = pr.id_producto
+		where VENTA_CODIGO is not null and VENTA_PRODUCTO_CANTIDAD is not null
+END
+GO
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_compra')
 	DROP PROCEDURE sp_migrar_compra
 GO
@@ -297,6 +313,17 @@ GO
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_producto_por_compra')
 	DROP PROCEDURE sp_migrar_producto_por_compra
 GO
+
+CREATE PROCEDURE sp_migrar_producto_por_venta
+AS
+BEGIN
+	INSERT INTO INFORMADOS.producto_por_venta (id_compra, id_producto, cantidad,precio_unidad)
+		select distinct COMPRA_NUMERO,PRODUCTO_CODIGO,COMPRA_PRODUCTO_CANTIDAD,COMPRA_PRODUCTO_PRECIO
+	FROM gd_esquema.Maestra 
+	where PRODUCTO_CODIGO is not null and COMPRA_NUMERO is not null
+END
+GO
+
 
 CREATE PROCEDURE sp_migrar_producto_por_compra
 AS

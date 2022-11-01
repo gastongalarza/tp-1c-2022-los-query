@@ -25,16 +25,16 @@ CREATE TABLE INFORMADOS.zona(
 id_zona int IDENTITY(1,1) PRIMARY KEY,
 id_provincia int REFERENCES INFORMADOS.provincia(id_provincia),
 localidad nvarchar(255),
-codigo_postal decimal(18,0)
+codigo_postal int
 );
 
 CREATE TABLE INFORMADOS.cliente(
 id_cliente int IDENTITY(1,1) PRIMARY KEY,
-dni decimal(18,0),
+dni bigint,
 nombre nvarchar(255),
 apellido nvarchar(255),
 direccion nvarchar(255),
-telefono decimal(18,0),
+telefono bigint,
 mail nvarchar(255),
 fecha_nacimiento date,
 id_zona int REFERENCES INFORMADOS.zona(id_zona)
@@ -161,12 +161,11 @@ FOREIGN KEY (id_producto) REFERENCES INFORMADOS.producto(id_producto)
 
 CREATE TABLE INFORMADOS.producto_por_venta(
 id_venta bigint,
-id_producto nvarchar(50),
-cantidad decimal(18,0),
-precio decimal(18,2),
-PRIMARY KEY (id_venta, id_producto),
+id_variante_producto int,
+cantidad int,
+precio_unidad decimal(18,2),
 FOREIGN KEY (id_venta) REFERENCES INFORMADOS.venta(id_venta),
-FOREIGN KEY (id_producto) REFERENCES INFORMADOS.producto(id_producto)
+FOREIGN KEY (id_variante_producto) REFERENCES INFORMADOS.variante_producto(id_variante_producto)
 );
 
 CREATE TABLE INFORMADOS.medio_pago_compra(
