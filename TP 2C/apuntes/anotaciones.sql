@@ -101,13 +101,20 @@ segundo nivel
 
 Arbol de dependencias
 
-venta	- cliente		- envio			- metodo_envio
-		- zona ...						- zona			- provincia
-		- canal_venta
-		- medio_pago
+venta			- cliente		- envio			- metodo_envio
+				- zona ...						- zona			- provincia
+				- canal_venta
+				- medio_pago
 
-compra	- proveedor		- zona			- provincia
+compra			- proveedor		- zona			- provincia
 
+producto_		- compra...
+por_compra		- variante_		- variante...
+				  producto		- producto...
+
+producto_		- venta...
+por_venta		- variante_		- variante...
+				  producto		- producto...
 
 */
 
