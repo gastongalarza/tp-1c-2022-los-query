@@ -225,14 +225,14 @@ nombre nvarchar(50)
 );
 
 CREATE TABLE INFORMADOS.variante_producto(
-id_variante_producto int IDENTITY(1,1) PRIMARY KEY,
+id_variante_producto nvarchar(50) PRIMARY KEY,
 id_variante nvarchar(50) REFERENCES INFORMADOS.variante(id_variante),
 id_producto nvarchar(50) REFERENCES INFORMADOS.producto(id_producto),
 );
 
 CREATE TABLE INFORMADOS.producto_por_venta(
 id_venta bigint REFERENCES INFORMADOS.venta(id_venta),
-id_variante_producto int REFERENCES INFORMADOS.variante_producto(id_variante_producto),
+id_variante_producto nvarchar(50) REFERENCES INFORMADOS.variante_producto(id_variante_producto),
 cantidad int,
 precio_unidad decimal(18,2)
 );
@@ -266,7 +266,7 @@ total decimal(18,2),
 
 CREATE TABLE INFORMADOS.producto_por_compra(
 id_compra int REFERENCES INFORMADOS.compra(id_compra),
-id_producto nvarchar(50) REFERENCES INFORMADOS.producto(id_producto),
+id_variante_producto nvarchar(50) REFERENCES INFORMADOS.variante_producto(id_variante_producto),
 cantidad int,
 precio_unidad decimal(18,2)
 );
@@ -558,12 +558,18 @@ CREATE PROCEDURE sp_migrar_producto_por_venta
 AS
 BEGIN
 	PRINT 'Migracion de productos por venta'
-	insert into INFORMADOS.producto_por_venta(id_venta, id_variante_producto, cantidad, precio_unidad)
+	/*INSERT INTO INFORMADOS.producto_por_venta(id_venta, id_variante_producto, cantidad, precio_unidad)
 	SELECT ma.VENTA_CODIGO, vp.id_variante_producto, ma.VENTA_PRODUCTO_CANTIDAD, ma.VENTA_PRODUCTO_PRECIO
 	FROM gd_esquema.Maestra ma
 	JOIN INFORMADOS.producto pr on ma.PRODUCTO_NOMBRE = pr.nombre
-	JOIN INFORMADOS.variante_producto vp on vp.id_producto = pr.id_producto
-	WHERE VENTA_CODIGO IS NOT NULL AND VENTA_PRODUCTO_CANTIDAD IS NOT NULL
+	JOIN INFORMADOS.variante va on va.nombre = ma.PRODUCTO_VARIANTE
+	JOIN INFORMADOS.variante_producto vp on vp.id_producto = pr.id_producto and vp.id_variante = va.id_variante
+	WHERE VENTA_CODIGO IS NOT NULL AND VENTA_PRODUCTO_CANTIDAD IS NOT NULL*/
+
+	INSERT INTO INFORMADOS.producto_por_venta(id_venta, id_variante_producto, cantidad, precio_unidad)
+	SELECT VENTA_CODIGO, PRODUCTO_VARIANTE_CODIGO, VENTA_PRODUCTO_CANTIDAD, VENTA_PRODUCTO_PRECIO
+	FROM gd_esquema.Maestra ma
+	WHERE VENTA_CODIGO IS NOT NULL AND PRODUCTO_VARIANTE_CODIGO IS NOT NULL
 END
 GO
 
@@ -598,10 +604,18 @@ CREATE PROCEDURE sp_migrar_producto_por_compra
 AS
 BEGIN
 	PRINT 'Migracion de productos por compra'
-	INSERT INTO INFORMADOS.producto_por_compra (id_compra, id_producto, cantidad, precio_unidad)
-		SELECT DISTINCT COMPRA_NUMERO, PRODUCTO_CODIGO, COMPRA_PRODUCTO_CANTIDAD, COMPRA_PRODUCTO_PRECIO
-	FROM gd_esquema.Maestra 
-	WHERE PRODUCTO_CODIGO IS NOT NULL AND COMPRA_NUMERO IS NOT NULL
+	/*INSERT into INFORMADOS.producto_por_compra(id_compra, id_variante_producto, cantidad, precio_unidad)
+	SELECT ma.COMPRA_NUMERO, vp.id_variante_producto, ma.COMPRA_PRODUCTO_CANTIDAD, ma.COMPRA_PRODUCTO_PRECIO
+	FROM gd_esquema.Maestra ma
+	JOIN INFORMADOS.producto pr on ma.PRODUCTO_NOMBRE = pr.nombre
+	JOIN INFORMADOS.variante va on va.nombre = ma.PRODUCTO_VARIANTE
+	JOIN INFORMADOS.variante_producto vp on vp.id_producto = pr.id_producto and vp.id_variante = va.id_variante
+	WHERE PRODUCTO_CODIGO IS NOT NULL AND COMPRA_NUMERO IS NOT NULL*/
+
+	INSERT INTO INFORMADOS.producto_por_compra(id_compra, id_variante_producto, cantidad, precio_unidad)
+	SELECT COMPRA_NUMERO, PRODUCTO_VARIANTE_CODIGO, COMPRA_PRODUCTO_CANTIDAD, COMPRA_PRODUCTO_PRECIO
+	FROM gd_esquema.Maestra ma
+	WHERE COMPRA_NUMERO IS NOT NULL AND PRODUCTO_VARIANTE_CODIGO IS NOT NULL
 END
 GO
 
