@@ -51,7 +51,7 @@ solicitadas en la consigna
 
 
 --Cantidad y monto vendido o comprado, por periodo de cada producto 
-CREATE TABLE INFORMADOS.BI_productos(
+CREATE TABLE INFORMADOS.BI_productos_por_periodo(
 id_producto int,
 nombre_producto varchar(255),
 movimiento varchar(6) , --Esta columna va a especificar si se trata de la Venta o Compra del producto
@@ -60,6 +60,28 @@ cantidad_total int, --Cantidad total de compra o venta del producto
 monto_total decimal(18,2) --Monto total gastado o ingresado del producto
 );
 /* 
-Esta tabla se utilizará para la segunda Vista, y ademas en la consigna pide como minimo una tabla 
-de Producto (me imaginé algo asi como resolucion)
+Estas tablas se utilizarán para la segunda Vista, y además en la consigna pide como minimo una tabla 
+de Producto, categoria de producto. La tabla BI_productos_por_periodo me parece util para tener una tabla donde se tenga registrado por mes los productos
+vendidos y comprados con el monto ingresado o gastado. BI_productos_por_periodo servirá para hacer la segunda vista
 */
+
+CREATE TABLE INFORMADOS.BI_productos
+(
+id_producto int,
+nombre_producto varchar(255),
+id_categoria int
+);
+
+CREATE TABLE INFORMADOS.BI_categoria_producto
+(
+id_categoria int,
+nombre_categoria varchar(255)
+
+);
+/*
+BI_categoria_producto, si bien la piden como requisito minimo en la consigna, no veo sentido q replique lo que está en el transaccional, pero se necesita 
+para armar la 3era vista. Lo mismo que la tabla BI_productos
+*/
+
+
+
