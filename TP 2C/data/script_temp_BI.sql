@@ -46,3 +46,20 @@ costo decimal(18,2)
 Hasta acá estas tablas se usarian para realizar la primer Vista solicitada, y a su vez vienen a ser algunas dimensiones MINIMAS
 solicitadas en la consigna
 */
+
+------------------------------------------------------------------------
+
+
+--Cantidad y monto vendido o comprado, por periodo de cada producto 
+CREATE TABLE INFORMADOS.BI_productos(
+id_producto int,
+nombre_producto varchar(255),
+movimiento varchar(6) , --Esta columna va a especificar si se trata de la Venta o Compra del producto
+periodo varchar(10), --Periodo con formato 'yyyy-MM-dd' del producto 
+cantidad_total int, --Cantidad total de compra o venta del producto
+monto_total decimal(18,2) --Monto total gastado o ingresado del producto
+);
+/* 
+Esta tabla se utilizará para la segunda Vista, y ademas en la consigna pide como minimo una tabla 
+de Producto (me imaginé algo asi como resolucion)
+*/
