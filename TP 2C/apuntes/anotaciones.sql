@@ -264,3 +264,38 @@ select PRODUCTO_VARIANTE, count(distinct PRODUCTO_CODIGO), count(distinct PRODUC
 from gd_esquema.Maestra
 where PRODUCTO_VARIANTE is not null
 group by PRODUCTO_VARIANTE
+
+select VENTA_CODIGO, count(distinct VENTA_DESCUENTO_CONCEPTO)
+from gd_esquema.Maestra
+where VENTA_CODIGO is not null
+group by VENTA_CODIGO
+
+select VENTA_DESCUENTO_CONCEPTO, count(distinct VENTA_CODIGO)
+from gd_esquema.Maestra
+where VENTA_DESCUENTO_CONCEPTO is not null
+group by VENTA_DESCUENTO_CONCEPTO
+
+select *
+from gd_esquema.Maestra
+where VENTA_DESCUENTO_IMPORTE = VENTA_ENVIO_PRECIO
+
+select DISTINCT CLIENTE_NOMBRE, CLIENTE_APELLIDO
+from gd_esquema.Maestra
+
+select DISTINCT CLIENTE_DNI
+from gd_esquema.Maestra
+
+select DISTINCT *
+from INFORMADOS.variante
+
+select DISTINCT *
+from INFORMADOS.producto
+
+select DISTINCT count(distinct id_variante)
+from INFORMADOS.variante_producto
+group by id_variante_producto
+
+select DISTINCT PRODUCTO_VARIANTE
+from gd_esquema.Maestra
+
+

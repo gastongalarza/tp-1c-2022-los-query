@@ -11,9 +11,6 @@ DROP TABLE INFORMADOS.producto_por_compra
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'compra')
 DROP TABLE INFORMADOS.compra
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'descuento_por_venta')
-DROP TABLE INFORMADOS.descuento_por_venta
-
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'cupon_por_venta')
 DROP TABLE INFORMADOS.cupon_por_venta
 
@@ -162,7 +159,6 @@ fecha date,
 total decimal(18,2)
 );
 
-
 CREATE TABLE INFORMADOS.tipo_descuento_venta(
 id_tipo_descuento_venta int IDENTITY(1,1) PRIMARY KEY,
 concepto_descuento nvarchar(255)
@@ -170,14 +166,9 @@ concepto_descuento nvarchar(255)
 
 CREATE TABLE INFORMADOS.descuento_venta(
 id_descuento_venta int IDENTITY(2000,1) PRIMARY KEY,
-id_medio_pago_venta int REFERENCES INFORMADOS.medio_pago_venta(id_medio_pago_venta),
+id_venta bigint REFERENCES INFORMADOS.venta(id_venta),
 id_tipo_descuento_venta int REFERENCES INFORMADOS.tipo_descuento_venta(id_tipo_descuento_venta),
 importe_descuento decimal(18,2)
-);
-
-CREATE TABLE INFORMADOS.descuento_por_venta(
-id_descuento_venta int REFERENCES INFORMADOS.descuento_venta(id_descuento_venta),
-id_venta int
 );
 
 CREATE TABLE INFORMADOS.tipo_cupon(
@@ -219,14 +210,14 @@ tipo nvarchar(50)
 );
 
 CREATE TABLE INFORMADOS.variante(
-id_variante nvarchar(50) PRIMARY KEY,
+id_variante int IDENTITY(1,1) PRIMARY KEY,
 id_tipo_variante int REFERENCES INFORMADOS.tipo_variante(id_tipo_variante),
 nombre nvarchar(50)
 );
 
 CREATE TABLE INFORMADOS.variante_producto(
 id_variante_producto nvarchar(50) PRIMARY KEY,
-id_variante nvarchar(50) REFERENCES INFORMADOS.variante(id_variante),
+id_variante int REFERENCES INFORMADOS.variante(id_variante),
 id_producto nvarchar(50) REFERENCES INFORMADOS.producto(id_producto),
 );
 
@@ -303,17 +294,17 @@ BEGIN
 
 	PRINT 'Migracion de zonas'
 	INSERT INTO INFORMADOS.zona(codigo_postal, localidad, id_provincia)
-	SELECT DISTINCT CLIENTE_CODIGO_POSTAL, CLIENTE_LOCALIDAD,
-		(SELECT p.id_provincia FROM INFORMADOS.provincia p WHERE p.nombre = CLIENTE_PROVINCIA)
+	SELECT CLIENTE_CODIGO_POSTAL, CLIENTE_LOCALIDAD, p.id_provincia
 	FROM gd_esquema.Maestra
+	JOIN INFORMADOS.provincia p ON p.nombre = CLIENTE_PROVINCIA
 	WHERE CLIENTE_CODIGO_POSTAL IS NOT NULL AND CLIENTE_LOCALIDAD IS NOT NULL AND CLIENTE_PROVINCIA IS NOT NULL
-	GROUP BY CLIENTE_CODIGO_POSTAL, CLIENTE_LOCALIDAD, CLIENTE_PROVINCIA
+	GROUP BY CLIENTE_CODIGO_POSTAL, CLIENTE_LOCALIDAD, p.id_provincia
 	UNION
-	SELECT DISTINCT PROVEEDOR_CODIGO_POSTAL, PROVEEDOR_LOCALIDAD,
-		(SELECT p.id_provincia FROM INFORMADOS.provincia p WHERE p.nombre = PROVEEDOR_PROVINCIA)
+	SELECT PROVEEDOR_CODIGO_POSTAL, PROVEEDOR_LOCALIDAD, p.id_provincia
 	FROM gd_esquema.Maestra
+	JOIN INFORMADOS.provincia p ON p.nombre = PROVEEDOR_PROVINCIA
 	WHERE PROVEEDOR_CODIGO_POSTAL IS NOT NULL AND PROVEEDOR_LOCALIDAD IS NOT NULL AND PROVEEDOR_PROVINCIA IS NOT NULL
-	GROUP BY PROVEEDOR_CODIGO_POSTAL, PROVEEDOR_LOCALIDAD, PROVEEDOR_PROVINCIA
+	GROUP BY PROVEEDOR_CODIGO_POSTAL, PROVEEDOR_LOCALIDAD, p.id_provincia
 END
 GO
 
@@ -325,20 +316,16 @@ CREATE PROCEDURE sp_migrar_cliente
 AS
 BEGIN
 	PRINT 'Migracion de clientes'
-    INSERT INTO INFORMADOS.cliente (dni, nombre, apellido, direccion, telefono,
-		mail, fecha_nacimiento, id_zona)
-	SELECT DISTINCT CLIENTE_DNI, CLIENTE_NOMBRE, CLIENTE_APELLIDO, CLIENTE_DIRECCION, CLIENTE_TELEFONO,
-		CLIENTE_MAIL, CLIENTE_FECHA_NAC,
-		(SELECT top 1 z.id_zona
-		FROM INFORMADOS.zona z
-		JOIN INFORMADOS.provincia p on p.id_provincia = z.id_provincia
-		WHERE z.localidad = CLIENTE_LOCALIDAD and
-			z.codigo_postal = CLIENTE_CODIGO_POSTAL and
-			p.nombre = CLIENTE_PROVINCIA)
+    INSERT INTO INFORMADOS.cliente (dni, nombre, apellido, direccion, telefono, mail, fecha_nacimiento, id_zona)
+	SELECT DISTINCT CLIENTE_DNI, CLIENTE_NOMBRE, CLIENTE_APELLIDO, CLIENTE_DIRECCION, CLIENTE_TELEFONO, CLIENTE_MAIL, CLIENTE_FECHA_NAC, z.id_zona
 	FROM gd_esquema.Maestra
+	JOIN INFORMADOS.provincia p ON p.nombre = CLIENTE_PROVINCIA
+	JOIN INFORMADOS.zona z ON z.localidad = CLIENTE_LOCALIDAD
+		and z.codigo_postal = CLIENTE_CODIGO_POSTAL
+		and z.id_provincia = p.id_provincia
 	WHERE CLIENTE_DNI IS NOT NULL
 	GROUP BY CLIENTE_DNI, CLIENTE_NOMBRE, CLIENTE_APELLIDO, CLIENTE_DIRECCION, CLIENTE_TELEFONO,
-		CLIENTE_MAIL, CLIENTE_FECHA_NAC, CLIENTE_LOCALIDAD, CLIENTE_CODIGO_POSTAL, CLIENTE_PROVINCIA
+		CLIENTE_MAIL, CLIENTE_FECHA_NAC, CLIENTE_LOCALIDAD, CLIENTE_CODIGO_POSTAL, CLIENTE_PROVINCIA, z.id_zona
 END
 GO
 
@@ -351,17 +338,15 @@ AS
 BEGIN
 	PRINT 'Migracion de proveedores'
 	INSERT INTO INFORMADOS.proveedor (id_proveedor, razon_social, direccion, mail, id_zona)
-	SELECT DISTINCT PROVEEDOR_CUIT, PROVEEDOR_RAZON_SOCIAL, PROVEEDOR_DOMICILIO, PROVEEDOR_MAIL,
-		(SELECT top 1 z.id_zona
-		FROM INFORMADOS.zona z
-		JOIN INFORMADOS.provincia p on p.id_provincia = z.id_provincia
-		WHERE z.localidad = PROVEEDOR_LOCALIDAD and
-			z.codigo_postal = PROVEEDOR_CODIGO_POSTAL and
-			p.nombre = PROVEEDOR_PROVINCIA)
+	SELECT DISTINCT PROVEEDOR_CUIT, PROVEEDOR_RAZON_SOCIAL, PROVEEDOR_DOMICILIO, PROVEEDOR_MAIL, z.id_zona
 	FROM gd_esquema.Maestra
+	JOIN INFORMADOS.provincia p ON p.nombre = PROVEEDOR_PROVINCIA
+	JOIN INFORMADOS.zona z ON z.localidad = PROVEEDOR_LOCALIDAD
+		and z.codigo_postal = PROVEEDOR_CODIGO_POSTAL
+		and z.id_provincia = p.id_provincia
 	WHERE PROVEEDOR_CUIT IS NOT NULL
 	GROUP BY PROVEEDOR_CODIGO_POSTAL, PROVEEDOR_CUIT, PROVEEDOR_DOMICILIO, PROVEEDOR_LOCALIDAD,
-		PROVEEDOR_MAIL, PROVEEDOR_PROVINCIA, PROVEEDOR_RAZON_SOCIAL
+		PROVEEDOR_MAIL, PROVEEDOR_PROVINCIA, PROVEEDOR_RAZON_SOCIAL, z.id_zona
   END
 GO
 
@@ -395,11 +380,9 @@ BEGIN
 
 	PRINT 'Migracion de productos'
 	INSERT INTO INFORMADOS.producto(id_producto, nombre, descripcion, material, marca, id_categoria)
-	SELECT DISTINCT PRODUCTO_CODIGO, PRODUCTO_NOMBRE, PRODUCTO_DESCRIPCION, PRODUCTO_MATERIAL, PRODUCTO_MARCA,
-		(SELECT c.id_categoria
-		FROM INFORMADOS.categoria_producto c
-		WHERE c.nombre = PRODUCTO_CATEGORIA)
+	SELECT DISTINCT PRODUCTO_CODIGO, PRODUCTO_NOMBRE, PRODUCTO_DESCRIPCION, PRODUCTO_MATERIAL, PRODUCTO_MARCA, c.id_categoria
 	FROM gd_esquema.Maestra
+	JOIN INFORMADOS.categoria_producto c ON c.nombre = PRODUCTO_CATEGORIA
 	WHERE PRODUCTO_CODIGO IS NOT NULL
 END
 GO
@@ -418,13 +401,11 @@ BEGIN
 	WHERE PRODUCTO_TIPO_VARIANTE IS NOT NULL
 
 	PRINT 'Migracion de variantes'
-	INSERT INTO INFORMADOS.variante(id_variante, nombre, id_tipo_variante)
-	SELECT DISTINCT PRODUCTO_VARIANTE_CODIGO, PRODUCTO_VARIANTE,
-		(SELECT tp.id_tipo_variante
-		FROM INFORMADOS.tipo_variante tp
-		WHERE tp.tipo = PRODUCTO_TIPO_VARIANTE)
+	INSERT INTO INFORMADOS.variante(nombre, id_tipo_variante)
+	SELECT DISTINCT PRODUCTO_VARIANTE, tp.id_tipo_variante
 	FROM gd_esquema.Maestra
-	WHERE PRODUCTO_VARIANTE_CODIGO IS NOT NULL AND PRODUCTO_VARIANTE IS NOT NULL
+	JOIN INFORMADOS.tipo_variante tp ON tp.tipo = PRODUCTO_TIPO_VARIANTE
+	WHERE PRODUCTO_VARIANTE IS NOT NULL
 END
 GO
 
@@ -445,9 +426,9 @@ BEGIN
 	INSERT INTO INFORMADOS.envio(id_metodo_envio, id_zona, precio)
 	SELECT DISTINCT m.id_metodo_envio, z.id_zona, VENTA_ENVIO_PRECIO
 	FROM gd_esquema.Maestra ma
-	JOIN INFORMADOS.metodo_envio m on m.nombre = ma.VENTA_MEDIO_ENVIO
-	JOIN INFORMADOS.zona z on z.codigo_postal = CLIENTE_CODIGO_POSTAL and
-		z.localidad = CLIENTE_LOCALIDAD
+	JOIN INFORMADOS.metodo_envio m ON m.nombre = ma.VENTA_MEDIO_ENVIO
+	JOIN INFORMADOS.zona z ON z.codigo_postal = CLIENTE_CODIGO_POSTAL
+		and z.localidad = CLIENTE_LOCALIDAD
 END
 GO
 
@@ -540,13 +521,13 @@ CREATE PROCEDURE sp_migrar_variante_producto
 AS
 BEGIN
 	PRINT 'Migracion de variantes de producto'
-	INSERT INTO INFORMADOS.variante_producto (id_variante, id_producto)
-	SELECT DISTINCT 
-		(SELECT variante.id_variante FROM INFORMADOS.variante variante WHERE variante.id_variante = PRODUCTO_VARIANTE_CODIGO),
-		(SELECT prod.id_producto FROM INFORMADOS.producto prod WHERE prod.id_producto = PRODUCTO_CODIGO)
+	INSERT INTO INFORMADOS.variante_producto (id_variante_producto, id_variante, id_producto)
+	SELECT DISTINCT PRODUCTO_VARIANTE_CODIGO, v.id_variante, PRODUCTO_CODIGO
 	FROM gd_esquema.Maestra
-	WHERE PRODUCTO_VARIANTE_CODIGO IS NOT NULL AND PRODUCTO_CODIGO IS NOT NULL 
-	GROUP BY PRODUCTO_VARIANTE_CODIGO, PRODUCTO_CODIGO
+	JOIN INFORMADOS.producto p ON p.id_producto = PRODUCTO_CODIGO
+	JOIN INFORMADOS.variante v ON v.nombre = PRODUCTO_VARIANTE
+	WHERE PRODUCTO_VARIANTE_CODIGO IS NOT NULL AND PRODUCTO_CODIGO IS NOT NULL AND PRODUCTO_VARIANTE IS NOT NULL
+	GROUP BY PRODUCTO_VARIANTE_CODIGO, PRODUCTO_VARIANTE, PRODUCTO_CODIGO, v.id_variante
 END
 GO
 
@@ -558,14 +539,6 @@ CREATE PROCEDURE sp_migrar_producto_por_venta
 AS
 BEGIN
 	PRINT 'Migracion de productos por venta'
-	/*INSERT INTO INFORMADOS.producto_por_venta(id_venta, id_variante_producto, cantidad, precio_unidad)
-	SELECT ma.VENTA_CODIGO, vp.id_variante_producto, ma.VENTA_PRODUCTO_CANTIDAD, ma.VENTA_PRODUCTO_PRECIO
-	FROM gd_esquema.Maestra ma
-	JOIN INFORMADOS.producto pr on ma.PRODUCTO_NOMBRE = pr.nombre
-	JOIN INFORMADOS.variante va on va.nombre = ma.PRODUCTO_VARIANTE
-	JOIN INFORMADOS.variante_producto vp on vp.id_producto = pr.id_producto and vp.id_variante = va.id_variante
-	WHERE VENTA_CODIGO IS NOT NULL AND VENTA_PRODUCTO_CANTIDAD IS NOT NULL*/
-
 	INSERT INTO INFORMADOS.producto_por_venta(id_venta, id_variante_producto, cantidad, precio_unidad)
 	SELECT VENTA_CODIGO, PRODUCTO_VARIANTE_CODIGO, VENTA_PRODUCTO_CANTIDAD, VENTA_PRODUCTO_PRECIO
 	FROM gd_esquema.Maestra ma
@@ -582,16 +555,15 @@ AS
 BEGIN
 	PRINT 'Migracion de compras'
 	INSERT INTO INFORMADOS.compra (id_compra, id_proveedor, fecha, id_medio_pago, id_descuento, total)
-	SELECT DISTINCT COMPRA_NUMERO,
-		(SELECT prov.id_proveedor FROM INFORMADOS.proveedor prov WHERE prov.id_proveedor = PROVEEDOR_CUIT),
-		COMPRA_FECHA,
-		(SELECT mpc.id_medio_pago_compra FROM INFORMADOS.medio_pago_compra mpc WHERE mpc.nombre = COMPRA_MEDIO_PAGO),
-		(SELECT dc.id_descuento_compra FROM INFORMADOS.descuento_compra dc WHERE dc.id_descuento_compra = DESCUENTO_COMPRA_CODIGO),
-		COMPRA_TOTAL
+	SELECT DISTINCT COMPRA_NUMERO, prov.id_proveedor, COMPRA_FECHA, mpc.id_medio_pago_compra, dc.id_descuento_compra, COMPRA_TOTAL
 	FROM gd_esquema.Maestra
+	JOIN INFORMADOS.proveedor prov ON prov.id_proveedor = PROVEEDOR_CUIT
+	JOIN INFORMADOS.medio_pago_compra mpc ON mpc.nombre = COMPRA_MEDIO_PAGO
+	JOIN INFORMADOS.descuento_compra dc ON dc.id_descuento_compra = DESCUENTO_COMPRA_CODIGO
 	WHERE COMPRA_NUMERO IS NOT NULL AND PROVEEDOR_CUIT IS NOT NULL AND COMPRA_FECHA IS NOT NULL and
 		COMPRA_MEDIO_PAGO IS NOT NULL AND DESCUENTO_COMPRA_CODIGO IS NOT NULL AND COMPRA_TOTAL IS NOT NULL
-	GROUP BY COMPRA_NUMERO, PROVEEDOR_CUIT, COMPRA_FECHA, COMPRA_MEDIO_PAGO, DESCUENTO_COMPRA_CODIGO, COMPRA_TOTAL
+	GROUP BY COMPRA_NUMERO, PROVEEDOR_CUIT, COMPRA_FECHA, COMPRA_MEDIO_PAGO, DESCUENTO_COMPRA_CODIGO, COMPRA_TOTAL,
+		prov.id_proveedor, mpc.id_medio_pago_compra, dc.id_descuento_compra
 END
 GO
 
@@ -599,19 +571,10 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_producto_p
 	DROP PROCEDURE sp_migrar_producto_por_compra
 GO
 
-
 CREATE PROCEDURE sp_migrar_producto_por_compra
 AS
 BEGIN
 	PRINT 'Migracion de productos por compra'
-	/*INSERT into INFORMADOS.producto_por_compra(id_compra, id_variante_producto, cantidad, precio_unidad)
-	SELECT ma.COMPRA_NUMERO, vp.id_variante_producto, ma.COMPRA_PRODUCTO_CANTIDAD, ma.COMPRA_PRODUCTO_PRECIO
-	FROM gd_esquema.Maestra ma
-	JOIN INFORMADOS.producto pr on ma.PRODUCTO_NOMBRE = pr.nombre
-	JOIN INFORMADOS.variante va on va.nombre = ma.PRODUCTO_VARIANTE
-	JOIN INFORMADOS.variante_producto vp on vp.id_producto = pr.id_producto and vp.id_variante = va.id_variante
-	WHERE PRODUCTO_CODIGO IS NOT NULL AND COMPRA_NUMERO IS NOT NULL*/
-
 	INSERT INTO INFORMADOS.producto_por_compra(id_compra, id_variante_producto, cantidad, precio_unidad)
 	SELECT COMPRA_NUMERO, PRODUCTO_VARIANTE_CODIGO, COMPRA_PRODUCTO_CANTIDAD, COMPRA_PRODUCTO_PRECIO
 	FROM gd_esquema.Maestra ma
@@ -641,22 +604,12 @@ CREATE PROCEDURE sp_migrar_descuento_venta
 AS
 BEGIN
 	PRINT 'Migracion de descuentos para ventas'
-  	INSERT INTO INFORMADOS.descuento_venta(id_medio_pago_venta, id_tipo_descuento_venta, importe_descuento)
-	SELECT tt.id_medio_pago_venta, tt.id_tipo_descuento_venta, VENTA_DESCUENTO_IMPORTE
-	FROM (SELECT DISTINCT VENTA_CODIGO, mp.id_medio_pago_venta, td.id_tipo_descuento_venta, VENTA_DESCUENTO_IMPORTE
-		FROM gd_esquema.Maestra m1
-		LEFT JOIN INFORMADOS.medio_pago_venta mp on m1.VENTA_DESCUENTO_CONCEPTO = mp.nombre
-		LEFT JOIN INFORMADOS.tipo_descuento_venta td on m1.VENTA_DESCUENTO_CONCEPTO = td.concepto_descuento
-		WHERE m1.VENTA_DESCUENTO_CONCEPTO IS NOT NULL) tt
-
-	PRINT 'Migracion de descuentos por venta'
-    INSERT INTO INFORMADOS.descuento_por_venta(id_descuento_venta, id_venta)
-	SELECT DISTINCT dd.id_descuento_venta, m1.VENTA_CODIGO
-	FROM INFORMADOS.descuento_venta dd
-	JOIN INFORMADOS.tipo_descuento_venta td on dd.id_tipo_descuento_venta = td.id_tipo_descuento_venta
-	JOIN (SELECT DISTINCT VENTA_CODIGO, VENTA_DESCUENTO_IMPORTE, VENTA_DESCUENTO_CONCEPTO
-		FROM gd_esquema.Maestra WHERE VENTA_DESCUENTO_IMPORTE IS NOT NULL) m1
-	on dd.importe_descuento = m1.VENTA_DESCUENTO_IMPORTE AND td.concepto_descuento = m1.VENTA_DESCUENTO_CONCEPTO
+  	INSERT INTO INFORMADOS.descuento_venta(id_venta, id_tipo_descuento_venta, importe_descuento)
+	SELECT DISTINCT v.id_venta, td.id_tipo_descuento_venta, VENTA_DESCUENTO_IMPORTE
+	FROM gd_esquema.Maestra m1
+	LEFT JOIN INFORMADOS.venta v on m1.VENTA_CODIGO = v.id_venta
+	LEFT JOIN INFORMADOS.tipo_descuento_venta td on m1.VENTA_DESCUENTO_CONCEPTO = td.concepto_descuento
+	WHERE m1.VENTA_DESCUENTO_CONCEPTO IS NOT NULL
 END
 GO
 
@@ -683,12 +636,12 @@ AS
 BEGIN
 	PRINT 'Migracion de cupones'
   	INSERT INTO INFORMADOS.cupon(id_cupon, valor, fecha_inicial, fecha_final, id_tipo_cupon)
-	SELECT DISTINCT VENTA_CUPON_CODIGO, VENTA_CUPON_VALOR, VENTA_CUPON_FECHA_DESDE, VENTA_CUPON_FECHA_HASTA,
-		(SELECT tc.id_tipo_cupon FROM INFORMADOS.tipo_cupon tc WHERE VENTA_CUPON_TIPO = tc.cupon_tipo)
+	SELECT DISTINCT VENTA_CUPON_CODIGO, VENTA_CUPON_VALOR, VENTA_CUPON_FECHA_DESDE, VENTA_CUPON_FECHA_HASTA, tc.id_tipo_cupon
 	FROM gd_esquema.Maestra 
+	JOIN INFORMADOS.tipo_cupon tc ON VENTA_CUPON_TIPO = tc.cupon_tipo
 	WHERE VENTA_CUPON_CODIGO IS NOT NULL AND VENTA_CUPON_TIPO IS NOT NULL and
 		VENTA_CUPON_VALOR IS NOT NULL AND VENTA_CUPON_FECHA_DESDE IS NOT NULL AND VENTA_CUPON_FECHA_HASTA IS NOT NULL
-	GROUP BY VENTA_CUPON_CODIGO, VENTA_CUPON_TIPO, VENTA_CUPON_VALOR, VENTA_CUPON_FECHA_DESDE, VENTA_CUPON_FECHA_HASTA
+	GROUP BY VENTA_CUPON_CODIGO, VENTA_CUPON_TIPO, VENTA_CUPON_VALOR, VENTA_CUPON_FECHA_DESDE, VENTA_CUPON_FECHA_HASTA, tc.id_tipo_cupon
 
 	PRINT 'Migracion de cupones por venta'
 	INSERT INTO INFORMADOS.cupon_por_venta(id_venta, id_cupon, importe_cupon)
@@ -701,7 +654,6 @@ GO
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
 ---------------------------------------------------
-
 
  BEGIN TRANSACTION
  BEGIN TRY
@@ -724,7 +676,6 @@ GO
 	EXECUTE sp_migrar_descuento_venta
 	EXECUTE sp_migrar_tipo_cupon
 	EXECUTE sp_migrar_cupon
-
 END TRY
 BEGIN CATCH
      ROLLBACK TRANSACTION;
@@ -752,7 +703,6 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM INFORMADOS.producto_por_compra)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.tipo_descuento_venta)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.descuento_venta)
-	AND EXISTS (SELECT 1 FROM INFORMADOS.descuento_por_venta)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.tipo_cupon)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.cupon)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.cupon_por_venta)
