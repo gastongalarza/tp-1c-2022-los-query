@@ -15,6 +15,7 @@ mes int
 --Esta tabla va a tener las ventas realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
 CREATE TABLE INFORMADOS.BI_ventas_realizadas(
 id_venta bigint,
+id_cliente int,
 producto varchar(255),
 cantidad int, 
 precio_total_producto decimal(18,2)
