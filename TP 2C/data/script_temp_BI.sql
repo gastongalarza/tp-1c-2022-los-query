@@ -1,3 +1,5 @@
+USE GD2C2022
+
 --Esta table va a mostrar cada compra con el año y mes en el que se realizó.
 CREATE TABLE INFORMADOS.BI_tiempo_compra(
 id_compra int,
@@ -12,22 +14,88 @@ año int,
 mes int
 );
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tiempos')
+	DROP PROCEDURE sp_migrar_bi_tiempos
+
+GO
+
+CREATE PROCEDURE sp_migrar_bi_tiempos
+AS
+BEGIN
+	PRINT 'Migracion de BI tiempo de compra'
+	INSERT INTO INFORMADOS.BI_tiempo_compra(id_compra,año,mes)
+	SELECT id_compra,YEAR(fecha),MONTH(fecha)
+	FROM INFORMADOS.compra  
+
+	PRINT 'Migracion de BI tiempo de venta'
+	INSERT INTO INFORMADOS.BI_tiempo_venta(id_venta,año,mes)
+	SELECT id_venta,YEAR(fecha),MONTH(fecha)
+	FROM INFORMADOS.venta  
+
+END
+
+GO
+
 --Esta tabla va a tener las ventas realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
 CREATE TABLE INFORMADOS.BI_ventas_realizadas(
 id_venta bigint,
 id_cliente int,
-producto varchar(255),
+id_producto varchar(255),
+id_variante_producto varchar(255),
 cantidad int, 
 precio_total_producto decimal(18,2)
 );
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_ventas_realizadas')
+	DROP PROCEDURE sp_migrar_bi_ventas_realizadas
+
+GO
+
+CREATE PROCEDURE sp_migrar_bi_ventas_realizadas
+AS
+BEGIN
+	PRINT 'Migracion de BI ventas realizadas'
+	INSERT INTO INFORMADOS.BI_ventas_realizadas(id_venta,id_cliente,id_producto,id_variante_producto,cantidad,precio_total_producto)
+	SELECT ve.id_venta,ve.id_cliente,vp.id_producto,vp.id_variante_producto,pv.cantidad,(pv.cantidad*precio_unidad) as precio_total_producto
+	FROM INFORMADOS.venta ve
+	LEFT JOIN INFORMADOS.producto_por_venta pv
+	ON ve.id_venta=pv.id_venta
+	LEFT JOIN INFORMADOS.variante_producto vp
+	ON pv.id_variante_producto=vp.id_variante_producto
+
+END
+
+GO
+
 --Esta tabla va a tener las compras realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
 CREATE TABLE INFORMADOS.BI_compras_realizadas(
 id_compra int,
-producto varchar(255),
+id_producto varchar(255),
+id_variante_producto varchar(255),
 cantidad int, 
 precio_total_producto decimal(18,2)
 );
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_compras_realizadas')
+	DROP PROCEDURE sp_migrar_bi_compras_realizadas
+
+GO
+
+CREATE PROCEDURE sp_migrar_bi_compras_realizadas
+AS
+BEGIN
+	PRINT 'Migracion de BI compras realizadas'
+	INSERT INTO INFORMADOS.BI_compras_realizadas(id_compra,id_producto,id_variante_producto,cantidad,precio_total_producto)
+	SELECT cr.id_compra,vp.id_producto,vp.id_variante_producto,pc.cantidad,(pc.cantidad*pc.precio_unidad) as precio_total_producto
+	FROM INFORMADOS.compra cr
+	LEFT JOIN INFORMADOS.producto_por_compra pc
+	ON cr.id_compra=pc.id_compra
+	LEFT JOIN INFORMADOS.variante_producto vp
+	ON pc.id_variante_producto=vp.id_variante_producto
+
+END
+
+GO
 
 --Esta tabla va a tener las ventas relacionadas directamente con el canal por el cual se vendio y el precio total de esa venta.
 CREATE TABLE INFORMADOS.BI_canal_venta(
