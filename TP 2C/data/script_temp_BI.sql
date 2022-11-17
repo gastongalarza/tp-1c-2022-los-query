@@ -249,40 +249,66 @@ ON vt.id_venta=tv.id_venta
 GROUP BY tv.año,tv.mes,cv.nombre_canal
 
 ------------------------------------------------------------------------
-
-
---Cantidad y monto vendido o comprado, por periodo de cada producto 
-CREATE TABLE INFORMADOS.BI_productos_por_periodo(
-id_producto int,
-nombre_producto varchar(255),
-movimiento varchar(6) , --Esta columna va a especificar si se trata de la Venta o Compra del producto
-periodo varchar(10), --Periodo con formato 'yyyy-MM-dd' del producto 
-cantidad_total int, --Cantidad total de compra o venta del producto
-monto_total decimal(18,2) --Monto total gastado o ingresado del producto
-);
-/* 
-Estas tablas se utilizarán para la segunda Vista, y además en la consigna pide como minimo una tabla 
-de Producto, categoria de producto. La tabla BI_productos_por_periodo me parece util para tener una tabla donde se tenga registrado por mes los productos
-vendidos y comprados con el monto ingresado o gastado. BI_productos_por_periodo servirá para hacer la segunda vista
-*/
-
+--Idem tabla INFORMADOS.productos por requisisto minimo
 CREATE TABLE INFORMADOS.BI_productos
 (
-id_producto int,
+id_producto varchar(255),
+id_categoria int,
 nombre_producto varchar(255),
-id_categoria int
+descripcion_producto varchar(255),
+material_producto varchar(255),
+marca_producto varchar(255)
 );
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_productos')
+	DROP PROCEDURE sp_migrar_bi_productos
+
+GO
+
+CREATE PROCEDURE sp_migrar_bi_productos
+AS
+BEGIN
+	PRINT 'Migracion de BI productos'
+	INSERT INTO INFORMADOS.BI_productos(id_producto,id_categoria,nombre_producto,descripcion_producto,material_producto,marca_producto)
+	SELECT *
+	FROM INFORMADOS.producto
+END
+
+GO
+
+--Idem INFORMADOS.categoria_producto por requi minimo
 CREATE TABLE INFORMADOS.BI_categoria_producto
 (
 id_categoria int,
 nombre_categoria varchar(255)
-
 );
 /*
 BI_categoria_producto, si bien la piden como requisito minimo en la consigna, no veo sentido q replique lo que está en el transaccional, pero se necesita 
 para armar la 3era vista. Lo mismo que la tabla BI_productos
 */
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_categoria_producto')
+	DROP PROCEDURE sp_migrar_bi_categoria_producto
+
+GO
+
+CREATE PROCEDURE sp_migrar_bi_categoria_producto
+AS
+BEGIN
+	PRINT 'Migracion de BI productos'
+	INSERT INTO INFORMADOS.BI_categoria_producto(id_categoria,nombre_categoria)
+	SELECT *
+	FROM INFORMADOS.categoria_producto
+END
+
+GO
+
+/* 
+Estas tablas se utilizarán para la segunda Vista
+*/
+
+
+
 
 
 
