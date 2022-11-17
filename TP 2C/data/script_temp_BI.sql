@@ -221,17 +221,24 @@ Hasta acá estas tablas se usarian para realizar la primer Vista solicitada, y a 
 solicitadas en la consigna
 */
 
-SELECT * FROM INFORMADOS.BI_compra_total ct
-JOIN INFORMADOS.BI_tiempo_compra tc
-ON ct.id_compra=tc.id_compra
+GO
 
-SELECT * FROM INFORMADOS.BI_tiempo_venta
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_ganancia_mensual_canal')
+	DROP VIEW vw_ganancia_mensual_canal
 
-
+GO
 
 CREATE VIEW vw_ganancia_mensual_canal
 AS
-SELECT tv.año,tv.mes,(SELECT )
+SELECT 
+tv.año,
+tv.mes,
+cv.nombre_canal,
+(	SUM(vt.precio_total_venta)	-	(SELECT ROUND(SUM(ct.costo_total_compra)/4,2)
+										FROM INFORMADOS.BI_compra_total ct
+										JOIN INFORMADOS.BI_tiempo_compra tc
+										ON ct.id_compra=tc.id_compra 
+										WHERE tc.año=tv.año AND tc.mes=tv.mes))	- (ROUND(SUM(mp.costo_medio_pago),2)) AS ganancia
 FROM INFORMADOS.BI_venta_total vt
 LEFT JOIN INFORMADOS.BI_canal_venta cv
 ON vt.id_canal_venta=cv.id_canal_venta
@@ -239,7 +246,7 @@ LEFT JOIN INFORMADOS.BI_medio_pago_venta mp
 ON vt.id_medio_pago_venta=mp.id_medio_pago_venta
 JOIN INFORMADOS.BI_tiempo_venta tv
 ON vt.id_venta=tv.id_venta
-
+GROUP BY tv.año,tv.mes,cv.nombre_canal
 
 ------------------------------------------------------------------------
 
