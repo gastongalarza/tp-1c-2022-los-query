@@ -307,6 +307,30 @@ GO
 Estas tablas se utilizarán para la segunda Vista
 */
 
+CREATE VIEW vw_mayor_rentabilidad_anual
+AS
+SELECT
+TOP 5
+vp.id_producto,
+((sum(vp.precio_total_producto)	-	(SELECT
+									sum(costo_total_producto)
+									FROM INFORMADOS.BI_compras_x_producto cp
+									LEFT JOIN INFORMADOS.BI_tiempo_compra tc
+									ON cp.id_compra=tc.id_compra
+									WHERE cast(concat(tc.año,'-',tc.mes,'-','01') as date) between Dateadd(month,-12,Getdate()) and Getdate() and cp.id_producto=vp.id_producto
+									)) /	( SELECT sum(vp2.precio_total_producto) 
+										FROM INFORMADOS.BI_ventas_x_productos vp2
+										LEFT JOIN INFORMADOS.BI_tiempo_venta tv2
+										ON vp2.id_venta=tv2.id_venta
+										WHERE cast(concat(tv2.año,'-',tv2.mes,'-','01') as date) between Dateadd(month,-12,Getdate()) and Getdate() and vp2.id_producto=vp.id_producto
+										))*100 AS porcentaje_rentabilidad
+FROM INFORMADOS.BI_ventas_x_productos vp
+LEFT JOIN INFORMADOS.BI_tiempo_venta tv
+ON vp.id_venta=tv.id_venta
+WHERE cast(concat(tv.año,'-',tv.mes,'-','01') as date) between Dateadd(month,-12,Getdate()) and Getdate()
+GROUP BY vp.id_producto
+ORDER BY porcentaje_rentabilidad desc
+
 
 
 
