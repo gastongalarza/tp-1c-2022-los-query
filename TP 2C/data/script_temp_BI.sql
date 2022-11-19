@@ -332,7 +332,59 @@ GROUP BY vp.id_producto
 ORDER BY porcentaje_rentabilidad desc
 
 
+--------------------------------------------------
+
+--Idem tabla INFORMADOS.clientes por si fuera necesaria
+CREATE TABLE INFORMADOS.BI_clientes
+(
+id_cliente int,
+id_zona int,
+dni_cliente bigint,
+nombre_cliente varchar(255),
+apellido_cliente varchar(255),
+direccion_cliente varchar(255),
+telefono_cliente varchar(255),
+mail_cliente varchar(255),
+fecha_nacimiento date
+);
+
+--Tabla minima de RANGO ETARIO CLIENTE
+CREATE TABLE INFORMADOS.BI_rango_etario_cliente
+(
+id_cliente int,
+rango_etario varchar(5)
+);
 
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_clientes')
+	DROP PROCEDURE sp_migrar_bi_clientes
 
+GO
+
+CREATE PROCEDURE sp_migrar_bi_clientes
+AS
+BEGIN
+	PRINT 'Migracion de BI Clientes'
+	INSERT INTO INFORMADOS.BI_clientes(id_cliente,id_zona,dni_cliente,nombre_cliente,apellido_cliente,direccion_cliente,telefono_cliente,mail_cliente,fecha_nacimiento)
+	SELECT *
+	FROM INFORMADOS.cliente where id_cliente = 6
+
+	INSERT INTO INFORMADOS.BI_rango_etario_cliente(id_cliente,rango_etario)
+	SELECT id_cliente,	CASE WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) < 25
+						THEN '<25' 
+						WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 25 AND 35
+						THEN '25-35'
+						WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 36 AND 55
+						THEN '35-55'
+						ELSE '>55' END
+	FROM INFORMADOS.cliente
+END
+
+GO
+
+
+-- La consigna dice 5 categorias mas vendidas, pero son solo 3 las categorias de productos.
+CREATE VIEW vw_categorias_vendidas_mensual
+AS
+SELECT 1 AS ASD
 
