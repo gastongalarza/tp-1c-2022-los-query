@@ -6,14 +6,14 @@ USE GD2C2022
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo')
 	DROP TABLE LOS_QUERY.BI_tiempo_venta
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_ventas_x_productos')
-	DROP TABLE LOS_QUERY.BI_ventas_x_productos
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_categoria_producto')
+	DROP TABLE LOS_QUERY.BI_categoria_producto
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_productos')
+	DROP TABLE LOS_QUERY..BI_productos
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_canal_venta')
-	DROP TABLE LOS_QUERY..BI_canal_venta
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_venta_total')
-	DROP TABLE LOS_QUERY.BI_venta_total
+	DROP TABLE LOS_QUERY.BI_canal_venta
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_venta')
 	DROP TABLE LOS_QUERY.BI_medio_pago_venta
@@ -21,20 +21,11 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_venta')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_compra')
 	DROP TABLE LOS_QUERY.BI_medio_pago_compra
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_compras_x_producto')
-	DROP TABLE LOS_QUERY.BI_compras_x_producto
-
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_compra_total')
 	DROP TABLE LOS_QUERY.BI_compra_total
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_productos')
-	DROP TABLE LOS_QUERY.BI_productos
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_categoria_producto')
-	DROP TABLE LOS_QUERY.BI_categoria_producto
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_clientes')
-	DROP TABLE LOS_QUERY.BI_clientes
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_compras_x_producto')
+	DROP TABLE LOS_QUERY.BI_compras_x_producto
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario')
 	DROP TABLE LOS_QUERY.BI_rango_etario
@@ -42,11 +33,23 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_provincia')
 	DROP TABLE LOS_QUERY.BI_provincia
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_descuento')
-	DROP TABLE LOS_QUERY.BI_tipo_descuento
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_clientes')
+	DROP TABLE LOS_QUERY.BI_clientes
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_envio')
 	DROP TABLE LOS_QUERY.BI_tipo_envio
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_descuento')
+	DROP TABLE LOS_QUERY.BI_tipo_descuento
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_venta_total')
+	DROP TABLE LOS_QUERY.BI_venta_total
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_descuento_venta')
+	DROP TABLE LOS_QUERY.BI_descuento_venta
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_ventas_x_productos')
+	DROP TABLE LOS_QUERY.BI_ventas_x_productos
 
 --Esta table va a mostrar cada compra con el año y mes en el que se realizó.
 CREATE TABLE INFORMADOS.BI_tiempo(
@@ -55,67 +58,57 @@ año int,
 mes int
 );
 
---Esta tabla va a tener las ventas realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
-CREATE TABLE INFORMADOS.BI_ventas_x_productos(
-id_venta bigint,
-id_cliente int,
-id_producto varchar(255),
-id_variante_producto varchar(255),
-cantidad int, 
-precio_total_producto decimal(18,2)
-);
-
---Esta tabla va a tener exactamente la info de canal_venta del transaccional
-CREATE TABLE INFORMADOS.BI_canal_venta(
-id_canal_venta int,
-nombre_canal varchar(255),
-costo_canal decimal(18,2)
-);
-
---Esta tabla va a tener la misma info que la tabla medio pago venta del transaccional
-CREATE TABLE INFORMADOS.BI_medio_pago_venta(
-id_medio_pago_venta int,
-nombre_medio_pago varchar(255),
-costo_medio_pago decimal(18,2)
-);
-
---Esta tabla va a tener la misma info que la tabla medio pago compra del transaccional
-CREATE TABLE INFORMADOS.BI_medio_pago_compra(
-id_medio_pago_compra int,
-nombre_medio_pago varchar(255)
-);
-
---Esta tabla va a tener las compras realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
-CREATE TABLE INFORMADOS.BI_compras_x_producto(
-id_compra int,
-id_producto varchar(255),
-id_variante_producto varchar(255),
-cantidad int, 
-costo_total_producto decimal(18,2)
-);
-
---Esta tabla va a tener las ventas relacionadas directamente con el canal y medio pago por el cual se vendio y el precio total de esa venta.
-CREATE TABLE INFORMADOS.BI_compra_total(
-id_compra int,
-id_medio_pago_compra int,
-id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
-costo_total_compra decimal(18,2)
+--Idem INFORMADOS.categoria_producto por requi minimo
+CREATE TABLE INFORMADOS.BI_categoria_producto(
+id_categoria int PRIMARY KEY,
+nombre_categoria varchar(255)
 );
 
 --Idem tabla INFORMADOS.productos por requisisto minimo
 CREATE TABLE INFORMADOS.BI_productos(
-id_producto varchar(255),
-id_categoria int,
+id_producto varchar(255) PRIMARY KEY,
+id_categoria int REFERENCES INFORMADOS.BI_categoria_producto(id_categoria),
 nombre_producto varchar(255),
 descripcion_producto varchar(255),
 material_producto varchar(255),
 marca_producto varchar(255)
 );
 
---Idem INFORMADOS.categoria_producto por requi minimo
-CREATE TABLE INFORMADOS.BI_categoria_producto(
-id_categoria int,
-nombre_categoria varchar(255)
+--Esta tabla va a tener exactamente la info de canal_venta del transaccional
+CREATE TABLE INFORMADOS.BI_canal_venta(
+id_canal_venta int PRIMARY KEY,
+nombre_canal varchar(255),
+costo_canal decimal(18,2)
+);
+
+--Esta tabla va a tener la misma info que la tabla medio pago venta del transaccional
+CREATE TABLE INFORMADOS.BI_medio_pago_venta(
+id_medio_pago_venta int PRIMARY KEY,
+nombre_medio_pago varchar(255),
+costo_medio_pago decimal(18,2)
+);
+
+--Esta tabla va a tener la misma info que la tabla medio pago compra del transaccional
+CREATE TABLE INFORMADOS.BI_medio_pago_compra(
+id_medio_pago_compra int PRIMARY KEY,
+nombre_medio_pago varchar(255)
+);
+
+--Esta tabla va a tener las ventas relacionadas directamente con el canal y medio pago por el cual se vendio y el precio total de esa venta.
+CREATE TABLE INFORMADOS.BI_compra_total(
+id_compra int PRIMARY KEY,
+id_medio_pago_compra int REFERENCES INFORMADOS.BI_medio_pago_compra(id_medio_pago_compra),
+id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
+costo_total_compra decimal(18,2)
+);
+
+--Esta tabla va a tener las compras realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
+CREATE TABLE INFORMADOS.BI_compras_x_producto(
+id_compra int REFERENCES INFORMADOS.BI_compra_total(id_compra),
+id_producto varchar(255) REFERENCES INFORMADOS.BI_productos(id_producto),
+id_variante_producto varchar(255), --checkear
+cantidad int, 
+costo_total_producto decimal(18,2)
 );
 
 --Tabla minima de RANGO ETARIO CLIENTE
@@ -132,15 +125,15 @@ nombre nvarchar(255)
 --Idem tabla INFORMADOS.clientes por si fuera necesaria
 CREATE TABLE INFORMADOS.BI_clientes(
 id_cliente int IDENTITY(1,1) PRIMARY KEY,
-id_rango_etario int REFERENCES INFORMADOS.BI_rango_etario(id_rango_etario),
-id_provincia int REFERENCES INFORMADOS.BI_provincia(id_provincia),
 dni_cliente bigint,
 nombre_cliente varchar(255),
 apellido_cliente varchar(255),
 direccion_cliente varchar(255),
 telefono_cliente varchar(255),
 mail_cliente varchar(255),
-fecha_nacimiento date
+fecha_nacimiento date,
+id_provincia int REFERENCES INFORMADOS.BI_provincia(id_provincia),
+id_rango_etario int REFERENCES INFORMADOS.BI_rango_etario(id_rango_etario)
 );
 
 CREATE TABLE INFORMADOS.BI_tipo_envio(
@@ -148,12 +141,16 @@ id_tipo_envio int IDENTITY(1,1) PRIMARY KEY,
 nombre nvarchar(255)
 );
 
+CREATE TABLE INFORMADOS.BI_tipo_descuento(
+id_tipo_descuento_venta int PRIMARY KEY,
+concepto_descuento nvarchar(255)
+);
 
 --Esta tabla va a tener las ventas relacionadas directamente con el canal y medio pago por el cual se vendio y el precio total de esa venta.
 CREATE TABLE INFORMADOS.BI_venta_total(
-id_venta int,
-id_canal_venta int,
-id_medio_pago_venta int,
+id_venta int PRIMARY KEY,
+id_canal_venta int REFERENCES INFORMADOS.BI_canal_venta(id_canal_venta),
+id_medio_pago_venta int REFERENCES INFORMADOS.BI_medio_pago_venta(id_medio_pago_venta),
 id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
 id_cliente int REFERENCES INFORMADOS.BI_clientes(id_cliente),
 id_tipo_envio int REFERENCES INFORMADOS.BI_tipo_envio(id_tipo_envio),
@@ -161,17 +158,21 @@ precio_total_venta decimal(18,2)
 );
 
 CREATE TABLE INFORMADOS.BI_descuento_venta(
-id_descuento_venta int PRIMARY KEY,
-id_venta bigint,
-id_tipo_descuento_venta int,
+id_descuento_venta int PRIMARY KEY, --podria no existir y usar el idventa y tipo descuento
+id_venta int REFERENCES INFORMADOS.BI_venta_total(id_venta),
+id_tipo_descuento_venta int REFERENCES INFORMADOS.BI_tipo_descuento(id_tipo_descuento_venta),
 importe_descuento decimal(18,2)
 );
 
-CREATE TABLE INFORMADOS.BI_tipo_descuento(
-id_tipo_descuento_venta int PRIMARY KEY,
-concepto_descuento nvarchar(255)
+--Esta tabla va a tener las ventas realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
+CREATE TABLE INFORMADOS.BI_ventas_x_productos(
+id_venta int REFERENCES INFORMADOS.BI_venta_total(id_venta),
+id_producto varchar(255) REFERENCES INFORMADOS.BI_productos(id_producto),
+id_variante_producto varchar(255), --hay que chequearlo
+cantidad int, 
+precio_total_producto decimal(18,2)
+PRIMARY KEY(id_venta, id_producto)
 );
-
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas de hechos para el armado de las vistas --
@@ -418,6 +419,7 @@ GO
 Hasta acá estas tablas se usarian para realizar la primer Vista solicitada, y a su vez vienen a ser algunas dimensiones MINIMAS
 solicitadas en la consigna
 */
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de procedimientos tablas de hechos--
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
