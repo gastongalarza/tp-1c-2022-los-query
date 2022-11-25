@@ -164,10 +164,17 @@ codigo_provincia int IDENTITY PRIMARY KEY,
 nombre nvarchar(255)
 );
 
+CREATE TABLE INFORMADOS.BI_descuento_venta
+(
+id_descuento_venta int PRIMARY KEY,
+id_venta bigint,
+id_tipo_descuento_venta int,
+importe_descuento decimal(18,2)
+);
 
 CREATE TABLE INFORMADOS.BI_tipo_descuento
 (
-id_tipo_descuento_venta int IDENTITY(1,1) PRIMARY KEY,
+id_tipo_descuento_venta int PRIMARY KEY,
 concepto_descuento nvarchar(255)
 );
 
@@ -406,6 +413,20 @@ END
 
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_descuento_venta')
+	DROP PROCEDURE sp_migrar_bi_descuento_venta
+GO
+
+CREATE PROCEDURE sp_migrar_bi_descuento_venta
+AS
+BEGIN
+	PRINT 'Migracion de BI descuento de venta'
+    INSERT INTO INFORMADOS.BI_descuento_venta(id_descuento_venta,id_venta,id_tipo_descuento_venta,importe_descuento)
+	SELECT *
+	FROM INFORMADOS.descuento_venta
+END
+GO
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_descuento')
 	DROP PROCEDURE sp_migrar_bi_tipo_descuento
 GO
@@ -414,9 +435,9 @@ CREATE PROCEDURE sp_migrar_bi_tipo_descuento
 AS
 BEGIN
 	PRINT 'Migracion de BI tipos de descuento'
-    INSERT INTO INFORMADOS.BI_tipo_descuento (concepto_descuento)
-	SELECT DISTINCT concepto_descuento 
-	FROM INFORMADOS.tipo_descuento_venta WHERE concepto_descuento IS NOT NULL
+    INSERT INTO INFORMADOS.BI_tipo_descuento (id_tipo_descuento_venta,concepto_descuento)
+	SELECT * 
+	FROM INFORMADOS.tipo_descuento_venta
 END
 GO
 
@@ -474,10 +495,6 @@ ON vt.id_venta=tv.id_venta
 GROUP BY tv.año,tv.mes,cv.nombre_canal
 
 GO
-/* 
-Estas tablas se utilizarán para la segunda Vista
-*/
-
 
 --2
 
@@ -519,7 +536,47 @@ SELECT 1 AS ASD
 
 */
 
+--4
 
+CREATE VIEW vw_ingresos_x_medio_pago
+AS
+SELECT
+mp.nombre_medio_pago
+,tv.mes
+,sum(vt.precio_total_venta)-coalesce(sum(mp.costo_medio_pago),0)-(CASE WHEN td.concepto_descuento=mp.nombre_medio_pago THEN dv.importe_descuento ELSE 0 end) AS total_ingresos
+FROM INFORMADOS.BI_venta_total vt
+JOIN INFORMADOS.BI_tiempo_venta tv
+ON vt.id_venta=tv.id_venta
+JOIN INFORMADOS.BI_medio_pago_venta mp
+ON mp.id_medio_pago_venta=vt.id_medio_pago_venta
+JOIN INFORMADOS.BI_descuento_venta dv
+ON vt.id_venta=dv.id_venta
+JOIN INFORMADOS.BI_tipo_descuento td
+ON dv.id_tipo_descuento_venta=td.id_tipo_descuento_venta
+GROUP BY mp.nombre_medio_pago,tv.mes
+GO
+
+/*
+select vt.id_venta,vt.precio_total_venta,sum(mp.costo_medio_pago),(CASE WHEN td.concepto_descuento=mp.nombre_medio_pago THEN dv.importe_descuento ELSE 0 end)
+from INFORMADOS.BI_venta_total vt 
+JOIN INFORMADOS.BI_tiempo_venta tv
+ON vt.id_venta=tv.id_venta 
+JOIN INFORMADOS.BI_medio_pago_venta mp
+ON mp.id_medio_pago_venta=vt.id_medio_pago_venta
+JOIN INFORMADOS.BI_descuento_venta dv
+ON vt.id_venta=dv.id_venta
+JOIN INFORMADOS.BI_tipo_descuento td
+ON dv.id_tipo_descuento_venta=td.id_tipo_descuento_venta
+where tv.mes = 9 and vt.id_medio_pago_venta = 2
+group by vt.id_venta,vt.precio_total_venta
+
+select * from INFORMADOS.BI_descuento_venta where id_venta=125972
+
+select * from INFORMADOS.BI_venta_total where id_venta=125972
+*/
+--5269916140.93 - 13900.00
+--Tarjeta 2
+--mes 9
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
 ---------------------------------------------------
