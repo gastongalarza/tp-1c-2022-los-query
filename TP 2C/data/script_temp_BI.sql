@@ -191,11 +191,12 @@ AS
 BEGIN
 	PRINT 'Migracion de BI tiempo de venta'
 	INSERT INTO INFORMADOS.BI_tiempo(id_tiempo, año, mes)
-	SELECT id_venta,YEAR(fecha),MONTH(fecha)
+	SELECT DISTINCT YEAR(fecha),MONTH(fecha)
 	FROM INFORMADOS.venta
-	UNION
-	SELECT id_compra, YEAR(fecha), MONTH(fecha)
-	FROM INFORMADOS.compra 
+	
+	INSERT INTO INFORMADOS.BI_tiempo(id_tiempo, año, mes) --habria que hacer un cursor y validar que no este contenido previamente
+	SELECT DISTINCT YEAR(fecha), MONTH(fecha)
+	FROM INFORMADOS.compra
 END
 GO
 
@@ -207,8 +208,18 @@ CREATE PROCEDURE sp_migrar_bi_ventas_x_productos
 AS
 BEGIN
 	PRINT 'Migracion de BI ventas realizadas'
-	INSERT INTO INFORMADOS.BI_ventas_x_productos(id_venta,id_cliente,id_producto,id_variante_producto,cantidad,precio_total_producto)
-	SELECT ve.id_venta,ve.id_cliente,vp.id_producto,vp.id_variante_producto,pv.cantidad,(pv.cantidad*precio_unidad) as precio_total_producto
+	INSERT INTO INFORMADOS.BI_ventas_x_productos(
+		id_venta,
+		id_producto,
+		id_variante_producto,
+		cantidad,
+		precio_total_producto)
+	SELECT 
+		ve.id_venta,
+		vp.id_producto,
+		vp.id_variante_producto,
+		pv.cantidad,
+		(pv.cantidad*precio_unidad) as precio_total_producto
 	FROM INFORMADOS.venta ve
 	LEFT JOIN INFORMADOS.producto_por_venta pv
 	ON ve.id_venta=pv.id_venta
@@ -239,8 +250,19 @@ CREATE PROCEDURE sp_migrar_bi_venta_total
 AS
 BEGIN
 	PRINT 'Migracion de BI venta total'
-	INSERT INTO INFORMADOS.BI_venta_total(id_venta,id_canal_venta,id_medio_pago_venta,precio_total_venta)
-	SELECT ve.id_venta,ve.id_canal,ve.id_medio_pago_venta,sum(vp.precio_total_producto)
+	INSERT INTO INFORMADOS.BI_venta_total(
+		id_venta,
+		id_canal_venta,
+		id_medio_pago_venta,
+		--id_tiempo,
+		--id_cliente,
+		--id_tipo_envio,
+		precio_total_venta)
+	SELECT 
+		ve.id_venta,
+		ve.id_canal,
+		ve.id_medio_pago_venta,
+		sum(vp.precio_total_producto)
 	FROM INFORMADOS.venta ve
 	LEFT JOIN INFORMADOS.BI_ventas_x_productos vp
 	ON ve.id_venta = vp.id_venta
@@ -276,8 +298,17 @@ CREATE PROCEDURE sp_migrar_bi_compras_x_producto
 AS
 BEGIN
 	PRINT 'Migracion de BI compras realizadas'
-	INSERT INTO INFORMADOS.BI_compras_x_producto(id_compra,id_producto,id_variante_producto,cantidad,costo_total_producto)
-	SELECT cr.id_compra,vp.id_producto,vp.id_variante_producto,pc.cantidad,(pc.cantidad*pc.precio_unidad) as precio_total_producto
+	INSERT INTO INFORMADOS.BI_compras_x_producto(
+		id_compra,
+		id_producto,
+		id_variante_producto,
+		cantidad,costo_total_producto)
+	SELECT 
+		cr.id_compra,
+		vp.id_producto,
+		vp.id_variante_producto,
+		pc.cantidad,
+		(pc.cantidad*pc.precio_unidad) as precio_total_producto
 	FROM INFORMADOS.compra cr
 	LEFT JOIN INFORMADOS.producto_por_compra pc
 	ON cr.id_compra=pc.id_compra
@@ -294,8 +325,15 @@ CREATE PROCEDURE sp_migrar_bi_compra_total
 AS
 BEGIN
 	PRINT 'Migracion de BI compra total'
-	INSERT INTO INFORMADOS.BI_compra_total(id_compra,id_medio_pago_compra,costo_total_compra)
-	SELECT cr.id_compra,cr.id_medio_pago,sum(cp.costo_total_producto)
+	INSERT INTO INFORMADOS.BI_compra_total(
+		id_compra,
+		id_medio_pago_compra,
+		--id_tiempo,
+		costo_total_compra)
+	SELECT 
+		cr.id_compra,
+		cr.id_medio_pago,
+		sum(cp.costo_total_producto)
 	FROM INFORMADOS.compra cr
 	LEFT JOIN INFORMADOS.BI_compras_x_producto cp
 	ON cr.id_compra = cp.id_compra
@@ -335,30 +373,6 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_clientes')
-	DROP PROCEDURE sp_migrar_bi_clientes
-GO
-
-CREATE PROCEDURE sp_migrar_bi_clientes
-AS
-BEGIN
-	PRINT 'Migracion de BI Clientes'
-	INSERT INTO INFORMADOS.BI_clientes(id_cliente,dni_cliente,nombre_cliente,apellido_cliente,direccion_cliente,telefono_cliente,mail_cliente,fecha_nacimiento)
-	SELECT *
-	FROM INFORMADOS.cliente where id_cliente = 6
-
-	INSERT INTO INFORMADOS.BI_rango_etario(id_rango_etario, rango_etario)
-	SELECT id_cliente,	CASE WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) < 25
-						THEN '<25' 
-						WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 25 AND 35
-						THEN '25-35'
-						WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 36 AND 55
-						THEN '35-55'
-						ELSE '>55' END
-	FROM INFORMADOS.cliente
-END
-GO
-
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_provincia')
 	DROP PROCEDURE sp_migrar_bi_provincia
 GO
@@ -372,6 +386,43 @@ BEGIN
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_clientes')
+	DROP PROCEDURE sp_migrar_bi_clientes
+GO
+
+CREATE PROCEDURE sp_migrar_bi_clientes
+AS
+BEGIN
+	PRINT 'Migracion de BI Clientes'
+	INSERT INTO INFORMADOS.BI_clientes(
+		id_cliente,
+		dni_cliente,
+		nombre_cliente,
+		apellido_cliente,
+		direccion_cliente,
+		telefono_cliente,
+		mail_cliente,
+		fecha_nacimiento)
+		--id_provincia
+		--id_rango_etario
+	SELECT *
+	FROM INFORMADOS.cliente where id_cliente = 6
+
+	INSERT INTO INFORMADOS.BI_rango_etario(id_rango_etario, rango_etario)
+	SELECT 
+		id_cliente,	
+		CASE 
+			WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) < 25
+				THEN '<25' 
+			WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 25 AND 35
+				THEN '25-35'
+			WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 36 AND 55
+				THEN '35-55'
+			ELSE '>55' END
+	FROM INFORMADOS.cliente
+END
+GO
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_descuento_venta')
 	DROP PROCEDURE sp_migrar_bi_descuento_venta
 GO
@@ -380,7 +431,11 @@ CREATE PROCEDURE sp_migrar_bi_descuento_venta
 AS
 BEGIN
 	PRINT 'Migracion de BI descuento de venta'
-    INSERT INTO INFORMADOS.BI_descuento_venta(id_descuento_venta,id_venta,id_tipo_descuento_venta,importe_descuento)
+    INSERT INTO INFORMADOS.BI_descuento_venta(
+		id_descuento_venta,
+		id_venta,
+		id_tipo_descuento_venta,
+		importe_descuento)
 	SELECT *
 	FROM INFORMADOS.descuento_venta
 END
