@@ -3,11 +3,8 @@ USE GD2C2022
 -- Creacion de tablas dimensionales --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_venta')
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo')
 	DROP TABLE LOS_QUERY.BI_tiempo_venta
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo_compra')
-	DROP TABLE LOS_QUERY.BI_tiempo_compra
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_ventas_x_productos')
 	DROP TABLE LOS_QUERY.BI_ventas_x_productos
@@ -39,8 +36,8 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_categoria_producto')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_clientes')
 	DROP TABLE LOS_QUERY.BI_clientes
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario_cliente')
-	DROP TABLE LOS_QUERY.BI_rango_etario_cliente
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario')
+	DROP TABLE LOS_QUERY.BI_rango_etario
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_provincia')
 	DROP TABLE LOS_QUERY.BI_provincia
@@ -52,15 +49,8 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_envio')
 	DROP TABLE LOS_QUERY.BI_tipo_envio
 
 --Esta table va a mostrar cada compra con el año y mes en el que se realizó.
-CREATE TABLE INFORMADOS.BI_tiempo_compra(
-id_compra int,
-año int,
-mes int
-);
-
---Esta table va a mostrar cada venta con el año y mes en el que se realizó.
-CREATE TABLE INFORMADOS.BI_tiempo_venta(
-id_venta bigint,
+CREATE TABLE INFORMADOS.BI_tiempo(
+id_tiempo int IDENTITY(1,1) PRIMARY KEY,
 año int,
 mes int
 );
@@ -80,14 +70,6 @@ CREATE TABLE INFORMADOS.BI_canal_venta(
 id_canal_venta int,
 nombre_canal varchar(255),
 costo_canal decimal(18,2)
-);
-
---Esta tabla va a tener las ventas relacionadas directamente con el canal y medio pago por el cual se vendio y el precio total de esa venta.
-CREATE TABLE INFORMADOS.BI_venta_total(
-id_venta int,
-id_canal_venta int,
-id_medio_pago_venta int,
-precio_total_venta decimal(18,2)
 );
 
 --Esta tabla va a tener la misma info que la tabla medio pago venta del transaccional
@@ -116,12 +98,12 @@ costo_total_producto decimal(18,2)
 CREATE TABLE INFORMADOS.BI_compra_total(
 id_compra int,
 id_medio_pago_compra int,
+id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
 costo_total_compra decimal(18,2)
 );
 
 --Idem tabla INFORMADOS.productos por requisisto minimo
-CREATE TABLE INFORMADOS.BI_productos
-(
+CREATE TABLE INFORMADOS.BI_productos(
 id_producto varchar(255),
 id_categoria int,
 nombre_producto varchar(255),
@@ -131,17 +113,27 @@ marca_producto varchar(255)
 );
 
 --Idem INFORMADOS.categoria_producto por requi minimo
-CREATE TABLE INFORMADOS.BI_categoria_producto
-(
+CREATE TABLE INFORMADOS.BI_categoria_producto(
 id_categoria int,
 nombre_categoria varchar(255)
 );
 
+--Tabla minima de RANGO ETARIO CLIENTE
+CREATE TABLE INFORMADOS.BI_rango_etario(
+id_rango_etario int IDENTITY(1,1) PRIMARY KEY,
+rango_etario varchar(5)
+);
+
+CREATE TABLE INFORMADOS.BI_provincia(
+id_provincia int IDENTITY(1,1) PRIMARY KEY,
+nombre nvarchar(255)
+);
+
 --Idem tabla INFORMADOS.clientes por si fuera necesaria
-CREATE TABLE INFORMADOS.BI_clientes
-(
-id_cliente int,
-id_zona int,
+CREATE TABLE INFORMADOS.BI_clientes(
+id_cliente int IDENTITY(1,1) PRIMARY KEY,
+id_rango_etario int REFERENCES INFORMADOS.BI_rango_etario(id_rango_etario),
+id_provincia int REFERENCES INFORMADOS.BI_provincia(id_provincia),
 dni_cliente bigint,
 nombre_cliente varchar(255),
 apellido_cliente varchar(255),
@@ -151,38 +143,33 @@ mail_cliente varchar(255),
 fecha_nacimiento date
 );
 
---Tabla minima de RANGO ETARIO CLIENTE
-CREATE TABLE INFORMADOS.BI_rango_etario_cliente
-(
-id_cliente int,
-rango_etario varchar(5)
-);
-
-CREATE TABLE INFORMADOS.BI_provincia
-(
-codigo_provincia int IDENTITY PRIMARY KEY,
+CREATE TABLE INFORMADOS.BI_tipo_envio(
+id_tipo_envio int IDENTITY(1,1) PRIMARY KEY,
 nombre nvarchar(255)
 );
 
-CREATE TABLE INFORMADOS.BI_descuento_venta
-(
+
+--Esta tabla va a tener las ventas relacionadas directamente con el canal y medio pago por el cual se vendio y el precio total de esa venta.
+CREATE TABLE INFORMADOS.BI_venta_total(
+id_venta int,
+id_canal_venta int,
+id_medio_pago_venta int,
+id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
+id_cliente int REFERENCES INFORMADOS.BI_clientes(id_cliente),
+id_tipo_envio int REFERENCES INFORMADOS.BI_tipo_envio(id_tipo_envio),
+precio_total_venta decimal(18,2)
+);
+
+CREATE TABLE INFORMADOS.BI_descuento_venta(
 id_descuento_venta int PRIMARY KEY,
 id_venta bigint,
 id_tipo_descuento_venta int,
 importe_descuento decimal(18,2)
 );
 
-CREATE TABLE INFORMADOS.BI_tipo_descuento
-(
+CREATE TABLE INFORMADOS.BI_tipo_descuento(
 id_tipo_descuento_venta int PRIMARY KEY,
 concepto_descuento nvarchar(255)
-);
-
---Tabla minima de RANGO ETARIO CLIENTE
-CREATE TABLE INFORMADOS.BI_tipo_envio
-(
-id_metodo_envio int IDENTITY(1,1) PRIMARY KEY,
-nombre nvarchar(255)
 );
 
 
@@ -196,29 +183,23 @@ nombre nvarchar(255)
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tiempos')
 	DROP PROCEDURE sp_migrar_bi_tiempos
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_tiempos
 AS
 BEGIN
-	PRINT 'Migracion de BI tiempo de compra'
-	INSERT INTO INFORMADOS.BI_tiempo_compra(id_compra,año,mes)
-	SELECT id_compra,YEAR(fecha),MONTH(fecha)
-	FROM INFORMADOS.compra  
-
 	PRINT 'Migracion de BI tiempo de venta'
-	INSERT INTO INFORMADOS.BI_tiempo_venta(id_venta,año,mes)
+	INSERT INTO INFORMADOS.BI_tiempo(id_tiempo, año, mes)
 	SELECT id_venta,YEAR(fecha),MONTH(fecha)
-	FROM INFORMADOS.venta  
-
+	FROM INFORMADOS.venta
+	UNION
+	SELECT id_compra, YEAR(fecha), MONTH(fecha)
+	FROM INFORMADOS.compra 
 END
-
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_ventas_x_productos')
 	DROP PROCEDURE sp_migrar_bi_ventas_x_productos
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_ventas_x_productos
@@ -232,14 +213,11 @@ BEGIN
 	ON ve.id_venta=pv.id_venta
 	LEFT JOIN INFORMADOS.variante_producto vp
 	ON pv.id_variante_producto=vp.id_variante_producto
-
 END
-
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_canal_venta')
 	DROP PROCEDURE sp_migrar_bi_canal_venta
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_canal_venta
@@ -250,13 +228,10 @@ BEGIN
 	SELECT id_canal_venta,nombre,costo
 	FROM INFORMADOS.canal_venta
 END
-
 GO
-
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_venta_total')
 	DROP PROCEDURE sp_migrar_bi_venta_total
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_venta_total
@@ -270,13 +245,10 @@ BEGIN
 	ON ve.id_venta = vp.id_venta
 	GROUP BY ve.id_venta,ve.id_canal,ve.id_medio_pago_venta ORDER BY ve.id_venta asc
 END
-
 GO
-
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_medio_pago')
 	DROP PROCEDURE sp_migrar_bi_medio_pago
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_medio_pago
@@ -293,12 +265,10 @@ BEGIN
 	SELECT *
 	FROM INFORMADOS.medio_pago_compra
 END
-
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_compras_x_producto')
 	DROP PROCEDURE sp_migrar_bi_compras_x_producto
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_compras_x_producto
@@ -312,14 +282,11 @@ BEGIN
 	ON cr.id_compra=pc.id_compra
 	LEFT JOIN INFORMADOS.variante_producto vp
 	ON pc.id_variante_producto=vp.id_variante_producto
-
 END
-
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_compra_total')
 	DROP PROCEDURE sp_migrar_bi_compra_total
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_compra_total
@@ -333,12 +300,10 @@ BEGIN
 	ON cr.id_compra = cp.id_compra
 	GROUP BY cr.id_compra,cr.id_medio_pago ORDER BY cr.id_compra asc
 END
-
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_productos')
 	DROP PROCEDURE sp_migrar_bi_productos
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_productos
@@ -349,7 +314,6 @@ BEGIN
 	SELECT *
 	FROM INFORMADOS.producto
 END
-
 GO
 
 /*
@@ -358,7 +322,6 @@ para armar la 3era vista. Lo mismo que la tabla BI_productos
 */
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_categoria_producto')
 	DROP PROCEDURE sp_migrar_bi_categoria_producto
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_categoria_producto
@@ -369,23 +332,21 @@ BEGIN
 	SELECT *
 	FROM INFORMADOS.categoria_producto
 END
-
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_clientes')
 	DROP PROCEDURE sp_migrar_bi_clientes
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_clientes
 AS
 BEGIN
 	PRINT 'Migracion de BI Clientes'
-	INSERT INTO INFORMADOS.BI_clientes(id_cliente,id_zona,dni_cliente,nombre_cliente,apellido_cliente,direccion_cliente,telefono_cliente,mail_cliente,fecha_nacimiento)
+	INSERT INTO INFORMADOS.BI_clientes(id_cliente,dni_cliente,nombre_cliente,apellido_cliente,direccion_cliente,telefono_cliente,mail_cliente,fecha_nacimiento)
 	SELECT *
 	FROM INFORMADOS.cliente where id_cliente = 6
 
-	INSERT INTO INFORMADOS.BI_rango_etario_cliente(id_cliente,rango_etario)
+	INSERT INTO INFORMADOS.BI_rango_etario(id_rango_etario, rango_etario)
 	SELECT id_cliente,	CASE WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) < 25
 						THEN '<25' 
 						WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 25 AND 35
@@ -395,12 +356,10 @@ BEGIN
 						ELSE '>55' END
 	FROM INFORMADOS.cliente
 END
-
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_provincia')
 	DROP PROCEDURE sp_migrar_bi_provincia
-
 GO
 
 CREATE PROCEDURE sp_migrar_bi_provincia
@@ -410,7 +369,6 @@ BEGIN
 	INSERT INTO INFORMADOS.BI_provincia(nombre)
 	SELECT DISTINCT pro.nombre FROM INFORMADOS.provincia pro WHERE nombre IS NOT NULL
 END
-
 GO
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_descuento_venta')
@@ -468,92 +426,133 @@ solicitadas en la consigna
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
---1
+-- VISTA 1: Las ganancias mensuales de cada canal de venta. 
+-- Se entiende por ganancias al total de las ventas, menos el total de las 
+-- compras, menos los costos de transacción totales aplicados asociados los 
+-- medios de pagos utilizados en las mismas.
+-- columnas: canal de venta, año, mes, ganancias
+
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_ganancia_mensual_canal')
 	DROP VIEW vw_ganancia_mensual_canal
-
 GO
+
+/*CREATE VIEW vw_ganancia_mensual_canal
+AS
+SELECT 
+	tv.año,
+	tv.mes,
+	cv.nombre_canal,
+	SUM(vt.precio_total_venta)
+	- (SELECT ROUND(SUM(ct.costo_total_compra) / 4, 2)
+		FROM INFORMADOS.BI_compra_total ct
+		JOIN INFORMADOS.BI_tiempo_compra tc ON ct.id_compra = tc.id_compra 
+		WHERE tc.año = tv.año AND tc.mes = tv.mes)
+	 - ROUND(SUM(mp.costo_medio_pago), 2) AS ganancia
+FROM INFORMADOS.BI_venta_total vt
+LEFT JOIN INFORMADOS.BI_canal_venta cv ON vt.id_canal_venta = cv.id_canal_venta
+LEFT JOIN INFORMADOS.BI_medio_pago_venta mp ON vt.id_medio_pago_venta = mp.id_medio_pago_venta
+JOIN INFORMADOS.BI_tiempo_venta tv ON vt.id_venta = tv.id_venta
+GROUP BY tv.año, tv.mes, cv.nombre_canal
+
+GO*/
 
 CREATE VIEW vw_ganancia_mensual_canal
 AS
-SELECT 
-tv.año,
-tv.mes,
-cv.nombre_canal,
-(	SUM(vt.precio_total_venta)	-	(SELECT ROUND(SUM(ct.costo_total_compra)/4,2)
-										FROM INFORMADOS.BI_compra_total ct
-										JOIN INFORMADOS.BI_tiempo_compra tc
-										ON ct.id_compra=tc.id_compra 
-										WHERE tc.año=tv.año AND tc.mes=tv.mes))	- (ROUND(SUM(mp.costo_medio_pago),2)) AS ganancia
-FROM INFORMADOS.BI_venta_total vt
-LEFT JOIN INFORMADOS.BI_canal_venta cv
-ON vt.id_canal_venta=cv.id_canal_venta
-LEFT JOIN INFORMADOS.BI_medio_pago_venta mp
-ON vt.id_medio_pago_venta=mp.id_medio_pago_venta
-JOIN INFORMADOS.BI_tiempo_venta tv
-ON vt.id_venta=tv.id_venta
-GROUP BY tv.año,tv.mes,cv.nombre_canal
-
+SELECT  ti.año, ti.mes,
+	cv.nombre_canal,
+	SUM(vt.precio_total_venta) - ROUND(SUM(ct.costo_total_compra) / 4, 2) - ROUND(SUM(mp.costo_medio_pago), 2) AS ganancia
+FROM INFORMADOS.BI_tiempo ti
+LEFT JOIN INFORMADOS.BI_venta_total vt ON vt.id_tiempo = ti.id_tiempo
+LEFT JOIN INFORMADOS.BI_canal_venta cv ON vt.id_canal_venta = cv.id_canal_venta
+LEFT JOIN INFORMADOS.BI_medio_pago_venta mp ON vt.id_medio_pago_venta = mp.id_medio_pago_venta
+LEFT JOIN INFORMADOS.BI_compra_total ct ON ct.id_tiempo = ti.id_tiempo
+GROUP BY ti.año, ti.mes, cv.nombre_canal
 GO
 
---2
+-- VISTA 2: Los 5 productos con mayor rentabilidad anual, con sus respectivos %.
+-- Se entiende por rentabilidad a los ingresos generados por el producto 
+-- (ventas) durante el periodo menos la inversión realizada en el producto 
+-- (compras) durante el periodo, todo esto sobre dichos ingresos. 
+-- Valor expresado en porcentaje. 
+-- Para simplificar, no es necesario tener en cuenta los descuentos aplicados.
+-- columnas: producto, porcentaje (año?, se asume el último año?, se promedian todos los años historicos?)
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_mayor_rentabilidad_anual')
 	DROP VIEW vw_mayor_rentabilidad_anual
-
 GO
 
 CREATE VIEW vw_mayor_rentabilidad_anual
 AS
-SELECT
-TOP 5
-vp.id_producto,
-((sum(vp.precio_total_producto)	-	(SELECT
-									sum(costo_total_producto)
-									FROM INFORMADOS.BI_compras_x_producto cp
-									LEFT JOIN INFORMADOS.BI_tiempo_compra tc
-									ON cp.id_compra=tc.id_compra
-									WHERE cast(concat(tc.año,'-',tc.mes,'-','01') as date) between Dateadd(month,-12,Getdate()) and Getdate() and cp.id_producto=vp.id_producto
-									)) /	( SELECT sum(vp2.precio_total_producto) 
-										FROM INFORMADOS.BI_ventas_x_productos vp2
-										LEFT JOIN INFORMADOS.BI_tiempo_venta tv2
-										ON vp2.id_venta=tv2.id_venta
-										WHERE cast(concat(tv2.año,'-',tv2.mes,'-','01') as date) between Dateadd(month,-12,Getdate()) and Getdate() and vp2.id_producto=vp.id_producto
-										))*100 AS porcentaje_rentabilidad
+SELECT TOP 5
+	vp.id_producto,
+	((sum(vp.precio_total_producto)
+		- (SELECT sum(costo_total_producto)
+			FROM INFORMADOS.BI_compras_x_producto cp
+			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+				and cp.id_producto = vp.id_producto)
+	) /	(SELECT sum(vp2.precio_total_producto) 
+		FROM INFORMADOS.BI_ventas_x_productos vp2
+		WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+			and vp2.id_producto = vp.id_producto)
+	) * 100 AS porcentaje_rentabilidad
 FROM INFORMADOS.BI_ventas_x_productos vp
-LEFT JOIN INFORMADOS.BI_tiempo_venta tv
-ON vp.id_venta=tv.id_venta
-WHERE cast(concat(tv.año,'-',tv.mes,'-','01') as date) between Dateadd(month,-12,Getdate()) and Getdate()
+LEFT JOIN INFORMADOS.BI_tiempo ti
+ON vp.id_venta = ti.id_tiempo
+WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
 GROUP BY vp.id_producto
 ORDER BY porcentaje_rentabilidad desc
 
 GO
+
 -- La consigna dice 5 categorias mas vendidas, pero son solo 3 las categorias de productos.
 /*
 CREATE VIEW vw_categorias_vendidas_mensual
 AS
 SELECT 1 AS ASD
-
 */
 
---4
+-- VISTA 3: Las 5 categorías de productos más vendidos por rango etario de clientes por mes. 
+-- columnas: rango_etareo, año, mes, categoria_nombre
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_categorias_por_rango_etarios')
+	DROP VIEW vw_categorias_por_rango_etarios
+GO
+
+CREATE VIEW vw_categorias_por_rango_etarios
+AS
+select TOP 5 ra.rango_etario, pr.id_categoria, ti.mes
+from INFORMADOS.BI_ventas_x_productos vp
+join INFORMADOS.BI_productos pr ON pr.id_producto = vp.id_producto
+join INFORMADOS.BI_venta_total vt ON vt.id_venta = vp.id_venta
+join INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vt.id_tiempo
+join INFORMADOS.BI_clientes cl ON cl.id_cliente = vt.id_cliente
+join INFORMADOS.BI_rango_etario ra ON ra.id_rango_etario = cl.id_rango_etario
+join INFORMADOS.BI_categoria_producto ca ON ca.id_categoria = pr.id_categoria
+group by pr.id_categoria, ti.mes, ra.rango_etario
+order by sum(vp.cantidad) DESC
+GO
+
+-- VISTA 4:  Total de Ingresos por cada medio de pago por mes, descontando los costos 
+-- por medio de pago (en caso que aplique) y descuentos por medio de pago 
+-- (en caso que aplique)
+-- columnas: medio_pago, año, mes, ingresos
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_ingresos_x_medio_pago')
+	DROP VIEW vw_ingresos_x_medio_pago
+GO
 
 CREATE VIEW vw_ingresos_x_medio_pago
 AS
-SELECT
-mp.nombre_medio_pago
-,tv.mes
-,sum(vt.precio_total_venta)-coalesce(sum(mp.costo_medio_pago),0)-(CASE WHEN td.concepto_descuento=mp.nombre_medio_pago THEN dv.importe_descuento ELSE 0 end) AS total_ingresos
+SELECT mp.nombre_medio_pago, ti.mes,
+	sum(vt.precio_total_venta) - coalesce(sum(mp.costo_medio_pago), 0) - 
+		(CASE WHEN td.concepto_descuento = mp.nombre_medio_pago THEN dv.importe_descuento
+			ELSE 0 end) AS total_ingresos
 FROM INFORMADOS.BI_venta_total vt
-JOIN INFORMADOS.BI_tiempo_venta tv
-ON vt.id_venta=tv.id_venta
-JOIN INFORMADOS.BI_medio_pago_venta mp
-ON mp.id_medio_pago_venta=vt.id_medio_pago_venta
-JOIN INFORMADOS.BI_descuento_venta dv
-ON vt.id_venta=dv.id_venta
-JOIN INFORMADOS.BI_tipo_descuento td
-ON dv.id_tipo_descuento_venta=td.id_tipo_descuento_venta
-GROUP BY mp.nombre_medio_pago,tv.mes
+JOIN INFORMADOS.BI_tiempo ti ON vt.id_venta = ti.id_tiempo
+JOIN INFORMADOS.BI_medio_pago_venta mp ON mp.id_medio_pago_venta = vt.id_medio_pago_venta
+JOIN INFORMADOS.BI_descuento_venta dv ON vt.id_venta = dv.id_venta
+JOIN INFORMADOS.BI_tipo_descuento td ON dv.id_tipo_descuento_venta = td.id_tipo_descuento_venta
+GROUP BY mp.nombre_medio_pago, ti.mes
 GO
 
 /*
@@ -577,6 +576,67 @@ select * from INFORMADOS.BI_venta_total where id_venta=125972
 --5269916140.93 - 13900.00
 --Tarjeta 2
 --mes 9
+
+
+-- VISTA 5: Importe total en descuentos aplicados según su tipo de descuento, por canal de venta, por mes.
+-- Se entiende por tipo de descuento como los 
+-- correspondientes a envío, medio de pago, cupones, etc)
+-- columnas: tipo_descuento, canal_de_venta, año, mes, importe
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_descuentos_aplicados_por_tipo')
+	DROP VIEW vw_descuentos_aplicados_por_tipo
+GO
+
+CREATE VIEW vw_descuentos_aplicados_por_tipo
+AS
+select tp.concepto_descuento, ca.nombre_canal, ti.mes, sum(dv.importe_descuento) as importe
+FROM INFORMADOS.BI_venta_total vt
+JOIN INFORMADOS.BI_canal_venta ca ON vt.id_canal_venta = ca.id_canal_venta
+JOIN INFORMADOS.BI_descuento_venta dv ON dv.id_venta = vt.id_venta
+JOIN INFORMADOS.BI_tipo_descuento tp ON tp.id_tipo_descuento_venta = dv.id_tipo_descuento_venta
+JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vt.id_tiempo
+GROUP BY ti.mes, tp.concepto_descuento, ca.nombre_canal
+GO
+
+-- VISTA 6: Porcentaje de envíos realizados a cada Provincia por mes.
+-- El porcentaje debe representar la cantidad de envíos realizados a cada provincia sobre 
+-- total de envío mensuales.
+-- columnas: provincia, año, mes, porcentaje
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_descuentos_aplicados_por_tipo')
+	DROP VIEW vw_descuentos_aplicados_por_tipo
+GO
+
+CREATE VIEW vw_envios_a_provincia_por_mes
+AS
+select pr.nombre, ti.mes,
+	COUNT(te.nombre) / (
+		SELECT count(te.nombre)
+		FROM INFORMADOS.BI_venta_total vt2
+		JOIN INFORMADOS.BI_tipo_envio te2 ON te2.id_tipo_envio = vt2.id_tipo_envio
+		WHERE te.nombre <> 'Entrega en sucursal' AND ti.id_tiempo = vt2.id_tiempo
+	) * 100 AS importe
+FROM INFORMADOS.BI_provincia pr
+JOIN INFORMADOS.BI_clientes cl ON cl.id_provincia = pr.id_provincia
+JOIN INFORMADOS.BI_venta_total vt ON vt.id_cliente = cl.id_cliente
+JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vt.id_tiempo
+JOIN INFORMADOS.BI_tipo_envio te ON te.id_tipo_envio = vt.id_tipo_envio
+WHERE te.nombre <> 'Entrega en sucursal'
+GROUP BY ti.mes, pr.nombre
+GO
+
+-- VISTA 7: Valor promedio de envío por Provincia por Medio De Envío anual.
+-- columnas: provincia, medio_envio, año, valor
+
+-- VISTA 8: Aumento promedio de precios de cada proveedor anual.
+-- Para calcular este indicador se debe tomar como referencia el máximo precio por año menos 
+-- el mínimo todo esto divido el mínimo precio del año. Teniendo en cuenta 
+-- que los precios siempre van en aumento.
+-- columnas: proveedor, año, aumento_promedio
+
+-- VISTA 9: Los 3 productos con mayor cantidad de reposición por mes.
+-- columnas: año, mes, codigo_prod1, nombre_prod2, codigo_prod2, nombre_prod2, codigo_prod3, nombre_prod3
+
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
 ---------------------------------------------------
@@ -605,15 +665,14 @@ END CATCH
 	IF (EXISTS (SELECT 1 FROM INFORMADOS.BI_canal_venta)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_categoria_producto)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_clientes)
-	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_rango_etario_cliente)
+	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_rango_etario)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_compra_total)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_compras_x_producto)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_medio_pago_venta)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_medio_pago_compra)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_productos)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_provincia)
-	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tiempo_venta)
-	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tiempo_compra)
+	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tiempo)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tipo_descuento)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tipo_envio)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_venta_total)
