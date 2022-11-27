@@ -741,18 +741,20 @@ GO
 
  BEGIN TRANSACTION
  BEGIN TRY
-    EXECUTE sp_migrar_bi_canal_venta
+    EXECUTE sp_migrar_bi_tiempos
 	EXECUTE sp_migrar_bi_categoria_producto
-	EXECUTE sp_migrar_bi_clientes
+	EXECUTE sp_migrar_bi_productos
+	EXECUTE sp_migrar_bi_canal_venta
+	EXECUTE sp_migrar_bi_medio_pago
 	EXECUTE sp_migrar_bi_compra_total
 	EXECUTE sp_migrar_bi_compras_x_producto
-	EXECUTE sp_migrar_bi_medio_pago
-	EXECUTE sp_migrar_bi_productos
+	EXECUTE sp_migrar_bi_rango_etario
 	EXECUTE sp_migrar_bi_provincia
-	EXECUTE sp_migrar_bi_tiempos
-	EXECUTE sp_migrar_bi_tipo_descuento
+	EXECUTE sp_migrar_bi_clientes
 	EXECUTE sp_migrar_bi_tipo_envio
+	EXECUTE sp_migrar_bi_tipo_descuento
 	EXECUTE sp_migrar_bi_venta_total
+	EXECUTE sp_migrar_bi_descuento_venta
 	EXECUTE sp_migrar_bi_ventas_x_productos
 END TRY
 BEGIN CATCH
