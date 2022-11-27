@@ -1,4 +1,5 @@
 USE GD2C2022
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas dimensionales --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -106,19 +107,18 @@ costo_total_compra decimal(18,2)
 CREATE TABLE INFORMADOS.BI_compras_x_producto(
 id_compra int REFERENCES INFORMADOS.BI_compra_total(id_compra),
 id_producto varchar(255) REFERENCES INFORMADOS.BI_productos(id_producto),
-id_variante_producto varchar(255), --checkear
 cantidad int, 
 costo_total_producto decimal(18,2)
 );
 
 --Tabla minima de RANGO ETARIO CLIENTE
 CREATE TABLE INFORMADOS.BI_rango_etario(
-id_rango_etario int IDENTITY(1,1) PRIMARY KEY,
+id_rango_etario int PRIMARY KEY,
 rango_etario varchar(5)
 );
 
 CREATE TABLE INFORMADOS.BI_provincia(
-id_provincia int IDENTITY(1,1) PRIMARY KEY,
+id_provincia int PRIMARY KEY,
 nombre nvarchar(255)
 );
 
@@ -137,7 +137,7 @@ id_rango_etario int REFERENCES INFORMADOS.BI_rango_etario(id_rango_etario)
 );
 
 CREATE TABLE INFORMADOS.BI_tipo_envio(
-id_tipo_envio int IDENTITY(1,1) PRIMARY KEY,
+id_tipo_envio int PRIMARY KEY,
 nombre nvarchar(255)
 );
 
@@ -168,7 +168,6 @@ importe_descuento decimal(18,2)
 CREATE TABLE INFORMADOS.BI_ventas_x_productos(
 id_venta int REFERENCES INFORMADOS.BI_venta_total(id_venta),
 id_producto varchar(255) REFERENCES INFORMADOS.BI_productos(id_producto),
-id_variante_producto varchar(255), --hay que chequearlo
 cantidad int, 
 precio_total_producto decimal(18,2)
 PRIMARY KEY(id_venta, id_producto)
@@ -193,165 +192,26 @@ BEGIN
 	INSERT INTO INFORMADOS.BI_tiempo(id_tiempo, año, mes)
 	SELECT DISTINCT YEAR(fecha),MONTH(fecha)
 	FROM INFORMADOS.venta
+
+	PRINT 'Migracion de BI tiempo de compra'
+	DECLARE feacha_c CURSOR FOR SELECT fecha FROM INFORMADOS.compra
+
+	DECLARE @Date date
+	DECLARE @Anio int
+	DECLARE @Mes int
 	
-	INSERT INTO INFORMADOS.BI_tiempo(id_tiempo, año, mes) --habria que hacer un cursor y validar que no este contenido previamente
-	SELECT DISTINCT YEAR(fecha), MONTH(fecha)
-	FROM INFORMADOS.compra
-END
-GO
+	OPEN feacha_c
+	FETCH feacha_c into @Date
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_ventas_x_productos')
-	DROP PROCEDURE sp_migrar_bi_ventas_x_productos
-GO
-
-CREATE PROCEDURE sp_migrar_bi_ventas_x_productos
-AS
-BEGIN
-	PRINT 'Migracion de BI ventas realizadas'
-	INSERT INTO INFORMADOS.BI_ventas_x_productos(
-		id_venta,
-		id_producto,
-		id_variante_producto,
-		cantidad,
-		precio_total_producto)
-	SELECT 
-		ve.id_venta,
-		vp.id_producto,
-		vp.id_variante_producto,
-		pv.cantidad,
-		(pv.cantidad*precio_unidad) as precio_total_producto
-	FROM INFORMADOS.venta ve
-	LEFT JOIN INFORMADOS.producto_por_venta pv
-	ON ve.id_venta=pv.id_venta
-	LEFT JOIN INFORMADOS.variante_producto vp
-	ON pv.id_variante_producto=vp.id_variante_producto
-END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_canal_venta')
-	DROP PROCEDURE sp_migrar_bi_canal_venta
-GO
-
-CREATE PROCEDURE sp_migrar_bi_canal_venta
-AS
-BEGIN
-	PRINT 'Migracion de BI canal venta'
-	INSERT INTO INFORMADOS.BI_canal_venta(id_canal_venta,nombre_canal,costo_canal)
-	SELECT id_canal_venta,nombre,costo
-	FROM INFORMADOS.canal_venta
-END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_venta_total')
-	DROP PROCEDURE sp_migrar_bi_venta_total
-GO
-
-CREATE PROCEDURE sp_migrar_bi_venta_total
-AS
-BEGIN
-	PRINT 'Migracion de BI venta total'
-	INSERT INTO INFORMADOS.BI_venta_total(
-		id_venta,
-		id_canal_venta,
-		id_medio_pago_venta,
-		--id_tiempo,
-		--id_cliente,
-		--id_tipo_envio,
-		precio_total_venta)
-	SELECT 
-		ve.id_venta,
-		ve.id_canal,
-		ve.id_medio_pago_venta,
-		sum(vp.precio_total_producto)
-	FROM INFORMADOS.venta ve
-	LEFT JOIN INFORMADOS.BI_ventas_x_productos vp
-	ON ve.id_venta = vp.id_venta
-	GROUP BY ve.id_venta,ve.id_canal,ve.id_medio_pago_venta ORDER BY ve.id_venta asc
-END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_medio_pago')
-	DROP PROCEDURE sp_migrar_bi_medio_pago
-GO
-
-CREATE PROCEDURE sp_migrar_bi_medio_pago
-AS
-BEGIN
-	
-	PRINT 'Migracion de BI medio de pago venta'
-	INSERT INTO INFORMADOS.BI_medio_pago_venta(id_medio_pago_venta,nombre_medio_pago,costo_medio_pago)
-	SELECT *
-	FROM INFORMADOS.medio_pago_venta
-
-	PRINT 'Migracion de BI medio de pago compra'
-	INSERT INTO INFORMADOS.BI_medio_pago_compra(id_medio_pago_compra,nombre_medio_pago)
-	SELECT *
-	FROM INFORMADOS.medio_pago_compra
-END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_compras_x_producto')
-	DROP PROCEDURE sp_migrar_bi_compras_x_producto
-GO
-
-CREATE PROCEDURE sp_migrar_bi_compras_x_producto
-AS
-BEGIN
-	PRINT 'Migracion de BI compras realizadas'
-	INSERT INTO INFORMADOS.BI_compras_x_producto(
-		id_compra,
-		id_producto,
-		id_variante_producto,
-		cantidad,costo_total_producto)
-	SELECT 
-		cr.id_compra,
-		vp.id_producto,
-		vp.id_variante_producto,
-		pc.cantidad,
-		(pc.cantidad*pc.precio_unidad) as precio_total_producto
-	FROM INFORMADOS.compra cr
-	LEFT JOIN INFORMADOS.producto_por_compra pc
-	ON cr.id_compra=pc.id_compra
-	LEFT JOIN INFORMADOS.variante_producto vp
-	ON pc.id_variante_producto=vp.id_variante_producto
-END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_compra_total')
-	DROP PROCEDURE sp_migrar_bi_compra_total
-GO
-
-CREATE PROCEDURE sp_migrar_bi_compra_total
-AS
-BEGIN
-	PRINT 'Migracion de BI compra total'
-	INSERT INTO INFORMADOS.BI_compra_total(
-		id_compra,
-		id_medio_pago_compra,
-		--id_tiempo,
-		costo_total_compra)
-	SELECT 
-		cr.id_compra,
-		cr.id_medio_pago,
-		sum(cp.costo_total_producto)
-	FROM INFORMADOS.compra cr
-	LEFT JOIN INFORMADOS.BI_compras_x_producto cp
-	ON cr.id_compra = cp.id_compra
-	GROUP BY cr.id_compra,cr.id_medio_pago ORDER BY cr.id_compra asc
-END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_productos')
-	DROP PROCEDURE sp_migrar_bi_productos
-GO
-
-CREATE PROCEDURE sp_migrar_bi_productos
-AS
-BEGIN
-	PRINT 'Migracion de BI productos'
-	INSERT INTO INFORMADOS.BI_productos(id_producto,id_categoria,nombre_producto,descripcion_producto,material_producto,marca_producto)
-	SELECT *
-	FROM INFORMADOS.producto
+	WHILE(@@FETCH_STATUS = 0)
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM INFORMADOS.BI_tiempo WHERE (año = @Anio AND mes = @Mes))
+			INSERT INTO INFORMADOS.BI_tiempo(año, mes) VALUES (@Anio, @Mes)
+			
+			FETCH feacha_c into @Date
+		END
+	CLOSE feacha_c
+	DEALLOCATE feacha_c
 END
 GO
 
@@ -368,8 +228,131 @@ AS
 BEGIN
 	PRINT 'Migracion de BI categoria productos'
 	INSERT INTO INFORMADOS.BI_categoria_producto(id_categoria,nombre_categoria)
+	SELECT * FROM INFORMADOS.categoria_producto
+END
+GO
+
+--revisar que informacion es relevante
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_productos')
+	DROP PROCEDURE sp_migrar_bi_productos
+GO
+
+CREATE PROCEDURE sp_migrar_bi_productos
+AS
+BEGIN
+	PRINT 'Migracion de BI productos'
+	INSERT INTO INFORMADOS.BI_productos(id_producto,id_categoria,nombre_producto,descripcion_producto,material_producto,marca_producto)
 	SELECT *
-	FROM INFORMADOS.categoria_producto
+	FROM INFORMADOS.producto
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_canal_venta')
+	DROP PROCEDURE sp_migrar_bi_canal_venta
+GO
+
+CREATE PROCEDURE sp_migrar_bi_canal_venta
+AS
+BEGIN
+	PRINT 'Migracion de BI canal venta'
+	INSERT INTO INFORMADOS.BI_canal_venta(id_canal_venta,nombre_canal,costo_canal)
+	SELECT * FROM INFORMADOS.canal_venta
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_medio_pago')
+	DROP PROCEDURE sp_migrar_bi_medio_pago
+GO
+
+CREATE PROCEDURE sp_migrar_bi_medio_pago
+AS
+BEGIN
+	
+	PRINT 'Migracion de BI medio de pago venta'
+	INSERT INTO INFORMADOS.BI_medio_pago_venta(id_medio_pago_venta,nombre_medio_pago,costo_medio_pago)
+	SELECT * FROM INFORMADOS.medio_pago_venta
+
+	PRINT 'Migracion de BI medio de pago compra'
+	INSERT INTO INFORMADOS.BI_medio_pago_compra(id_medio_pago_compra,nombre_medio_pago)
+	SELECT * FROM INFORMADOS.medio_pago_compra
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_compra_total')
+	DROP PROCEDURE sp_migrar_bi_compra_total
+GO
+
+CREATE PROCEDURE sp_migrar_bi_compra_total
+AS
+BEGIN
+	PRINT 'Migracion de BI compra total'
+	INSERT INTO INFORMADOS.BI_compra_total(
+		id_compra,
+		id_medio_pago_compra,
+		id_tiempo,
+		costo_total_compra)
+	SELECT 
+		cr.id_compra,
+		cr.id_medio_pago,
+		t.id_tiempo,
+		sum(cp.costo_total_producto * cp.cantidad)
+	FROM INFORMADOS.compra cr
+	LEFT JOIN INFORMADOS.BI_compras_x_producto cp ON cr.id_compra = cp.id_compra
+	JOIN INFORMADOS.BI_tiempo t ON YEAR(cr.fecha) = t.año AND MONTH(cr.fecha) = t.mes
+	GROUP BY cr.id_compra,cr.id_medio_pago, t.id_tiempo
+	ORDER BY cr.id_compra asc
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_compras_x_producto')
+	DROP PROCEDURE sp_migrar_bi_compras_x_producto
+GO
+
+CREATE PROCEDURE sp_migrar_bi_compras_x_producto
+AS
+BEGIN
+	PRINT 'Migracion de BI compras realizadas'
+	INSERT INTO INFORMADOS.BI_compras_x_producto(
+		id_compra,
+		id_producto,
+		cantidad,
+		costo_total_producto)
+	SELECT 
+		pc.id_compra,
+		vp.id_producto,
+		pc.cantidad,
+		(pc.cantidad * pc.precio_unidad) as costo_total_producto
+	FROM INFORMADOS.producto_por_compra pc
+	LEFT JOIN INFORMADOS.variante_producto vp ON pc.id_variante_producto = vp.id_variante_producto
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_rango_etario')
+	DROP PROCEDURE sp_migrar_bi_rango_etario
+GO
+
+CREATE PROCEDURE sp_migrar_bi_rango_etario
+AS
+BEGIN
+	PRINT 'Migracion de BI rango etario'
+	INSERT INTO INFORMADOS.BI_rango_etario(rango_etario) values(1, '<25')
+	INSERT INTO INFORMADOS.BI_rango_etario(rango_etario) values(2, '25-35')
+	INSERT INTO INFORMADOS.BI_rango_etario(rango_etario) values(3, '35-55')
+	INSERT INTO INFORMADOS.BI_rango_etario(rango_etario) values(4, '>55')
+
+	/*
+	INSERT INTO INFORMADOS.BI_rango_etario(id_rango_etario, rango_etario)
+	SELECT DISTINCT
+		CASE 
+			WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) < 25
+				THEN '<25' 
+			WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 25 AND 35
+				THEN '25-35'
+			WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 36 AND 55
+				THEN '35-55'
+			ELSE '>55' END
+	FROM INFORMADOS.cliente
+	*/
 END
 GO
 
@@ -381,11 +364,12 @@ CREATE PROCEDURE sp_migrar_bi_provincia
 AS
 BEGIN
 	PRINT 'Migracion de BI provincias'
-	INSERT INTO INFORMADOS.BI_provincia(nombre)
-	SELECT DISTINCT pro.nombre FROM INFORMADOS.provincia pro WHERE nombre IS NOT NULL
+	INSERT INTO INFORMADOS.BI_provincia(id_provincia, nombre)
+	SELECT DISTINCT * FROM INFORMADOS.provincia WHERE nombre IS NOT NULL
 END
 GO
 
+--verificar que informacion es escencial para las vistas, el resto sacarla
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_clientes')
 	DROP PROCEDURE sp_migrar_bi_clientes
 GO
@@ -402,24 +386,87 @@ BEGIN
 		direccion_cliente,
 		telefono_cliente,
 		mail_cliente,
-		fecha_nacimiento)
-		--id_provincia
-		--id_rango_etario
-	SELECT *
-	FROM INFORMADOS.cliente where id_cliente = 6
-
-	INSERT INTO INFORMADOS.BI_rango_etario(id_rango_etario, rango_etario)
+		fecha_nacimiento,
+		id_provincia,
+		id_rango_etario)
 	SELECT 
-		id_cliente,	
+		i.id_cliente,
+		i.dni,
+		i.nombre,
+		i.apellido,
+		i.direccion,
+		i.telefono,
+		i.mail,
+		i.fecha_nacimiento,
+		z.id_provincia,
 		CASE 
 			WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) < 25
-				THEN '<25' 
+				THEN 1
 			WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 25 AND 35
-				THEN '25-35'
+				THEN 2
 			WHEN FLOOR(DATEDIFF(DAY, fecha_nacimiento, cast(cast(GETDATE() as varchar(50)) as date)) / 365.20) BETWEEN 36 AND 55
-				THEN '35-55'
-			ELSE '>55' END
-	FROM INFORMADOS.cliente
+				THEN 3
+			ELSE 4 END
+	FROM INFORMADOS.cliente i
+	JOIN INFORMADOS.zona z ON i.id_zona = z.id_zona 
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_envio')
+	DROP PROCEDURE sp_migrar_bi_tipo_envio
+GO
+
+CREATE PROCEDURE sp_migrar_bi_tipo_envio
+AS
+BEGIN
+	PRINT 'Migracion de BI tipos de envio'
+    INSERT INTO INFORMADOS.BI_tipo_envio (id_tipo_envio, nombre)
+	SELECT DISTINCT * FROM INFORMADOS.metodo_envio WHERE nombre IS NOT NULL
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_descuento')
+	DROP PROCEDURE sp_migrar_bi_tipo_descuento
+GO
+
+CREATE PROCEDURE sp_migrar_bi_tipo_descuento
+AS
+BEGIN
+	PRINT 'Migracion de BI tipos de descuento'
+    INSERT INTO INFORMADOS.BI_tipo_descuento (id_tipo_descuento_venta,concepto_descuento)
+	SELECT * FROM INFORMADOS.tipo_descuento_venta
+END
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_venta_total')
+	DROP PROCEDURE sp_migrar_bi_venta_total
+GO
+
+CREATE PROCEDURE sp_migrar_bi_venta_total
+AS
+BEGIN
+	PRINT 'Migracion de BI venta total'
+	INSERT INTO INFORMADOS.BI_venta_total(
+		id_venta,
+		id_canal_venta,
+		id_medio_pago_venta,
+		id_tiempo,
+		id_cliente,
+		id_tipo_envio,
+		precio_total_venta)
+	SELECT 
+		ve.id_venta,
+		ve.id_canal,
+		ve.id_medio_pago_venta,
+		id_tiempo,
+		ve.id_cliente,
+		e.id_metodo_envio,
+		sum(vp.precio_total_producto * vp.cantidad)
+	FROM INFORMADOS.venta ve
+	LEFT JOIN INFORMADOS.BI_ventas_x_productos vp ON ve.id_venta = vp.id_venta
+	JOIN INFORMADOS.BI_tiempo t ON YEAR(ve.fecha) = t.año AND MONTH(ve.fecha) = t.mes
+	JOIN INFORMADOS.envio e ON ve.id_envio = e.id_envio
+	GROUP BY ve.id_venta,ve.id_canal,ve.id_medio_pago_venta ORDER BY ve.id_venta asc
 END
 GO
 
@@ -441,33 +488,27 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_descuento')
-	DROP PROCEDURE sp_migrar_bi_tipo_descuento
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_ventas_x_productos')
+	DROP PROCEDURE sp_migrar_bi_ventas_x_productos
 GO
 
-CREATE PROCEDURE sp_migrar_bi_tipo_descuento
+CREATE PROCEDURE sp_migrar_bi_ventas_x_productos
 AS
 BEGIN
-	PRINT 'Migracion de BI tipos de descuento'
-    INSERT INTO INFORMADOS.BI_tipo_descuento (id_tipo_descuento_venta,concepto_descuento)
-	SELECT * 
-	FROM INFORMADOS.tipo_descuento_venta
+	PRINT 'Migracion de BI ventas realizadas'
+	INSERT INTO INFORMADOS.BI_ventas_x_productos(
+		id_venta,
+		id_producto,
+		cantidad,
+		precio_total_producto)
+	SELECT 
+		pv.id_venta,
+		vp.id_producto,
+		pv.cantidad,
+		(pv.cantidad * pv.precio_unidad) as precio_total_producto
+	FROM INFORMADOS.producto_por_venta pv
+	LEFT JOIN INFORMADOS.variante_producto vp ON pv.id_variante_producto = vp.id_variante_producto
 END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_envio')
-	DROP PROCEDURE sp_migrar_bi_tipo_envio
-GO
-
-CREATE PROCEDURE sp_migrar_bi_tipo_envio
-AS
-BEGIN
-	PRINT 'Migracion de BI tipos de envio'
-    INSERT INTO INFORMADOS.BI_tipo_envio (nombre)
-	SELECT DISTINCT nombre
-	FROM INFORMADOS.metodo_envio WHERE nombre IS NOT NULL
-END
-
 GO
 
 /*
