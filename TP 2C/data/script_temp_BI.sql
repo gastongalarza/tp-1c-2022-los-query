@@ -17,7 +17,6 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_compra_total')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_compra')
 	DROP TABLE INFORMADOS.BI_medio_pago_compra
 
-
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_productos')
 	DROP TABLE INFORMADOS.BI_productos
 
@@ -32,7 +31,6 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_descuento')
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_canal_venta')
 	DROP TABLE INFORMADOS.BI_canal_venta
-
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_venta')
 	DROP TABLE INFORMADOS.BI_medio_pago_venta
@@ -192,7 +190,7 @@ CREATE PROCEDURE sp_migrar_bi_tiempos
 AS
 BEGIN
 	PRINT 'Migracion de BI tiempo de venta'
-	INSERT INTO INFORMADOS.BI_tiempo(id_tiempo, año, mes)
+	INSERT INTO INFORMADOS.BI_tiempo(año, mes)
 	SELECT DISTINCT YEAR(fecha),MONTH(fecha)
 	FROM INFORMADOS.venta
 
