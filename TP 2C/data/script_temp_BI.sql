@@ -29,6 +29,9 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_envio')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_descuento')
 	DROP TABLE INFORMADOS.BI_tipo_descuento
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_proveedor')
+	DROP TABLE INFORMADOS.BI_proveedor
+
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_canal_venta')
 	DROP TABLE INFORMADOS.BI_canal_venta
 
@@ -53,6 +56,9 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_provincia')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_envios_por_provincia')
 	DROP TABLE INFORMADOS.BI_fact_envios_por_provincia
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_compra')
+	DROP TABLE INFORMADOS.BI_fact_compra
+
 --Esta table va a mostrar cada compra con el año y mes en el que se realizó.
 CREATE TABLE INFORMADOS.BI_tiempo(
 id_tiempo int IDENTITY(1,1) PRIMARY KEY,
@@ -68,7 +74,7 @@ nombre_categoria varchar(255)
 
 --Idem tabla INFORMADOS.productos por requisisto minimo
 CREATE TABLE INFORMADOS.BI_productos(
-id_producto varchar(255) PRIMARY KEY,
+id_producto nvarchar(50) PRIMARY KEY,
 id_categoria int REFERENCES INFORMADOS.BI_categoria_producto(id_categoria),
 nombre_producto varchar(255),
 descripcion_producto varchar(255),
@@ -107,7 +113,7 @@ costo_total_compra decimal(18,2)
 --Esta tabla va a tener las compras realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
 CREATE TABLE INFORMADOS.BI_compras_x_producto(
 id_compra int REFERENCES INFORMADOS.BI_compra_total(id_compra),
-id_producto varchar(255) REFERENCES INFORMADOS.BI_productos(id_producto),
+id_producto nvarchar(50) REFERENCES INFORMADOS.BI_productos(id_producto),
 cantidad int, 
 costo_total_producto decimal(18,2)
 );
@@ -147,6 +153,15 @@ id_tipo_descuento_venta int PRIMARY KEY,
 concepto_descuento nvarchar(255)
 );
 
+
+CREATE TABLE INFORMADOS.BI_proveedor(
+    id_proveedor nvarchar(50),
+    razon_social nvarchar(255),
+	domicilio nvarchar(255),
+	mail nvarchar(255),
+	PRIMARY KEY(id_proveedor)
+);
+
 --Esta tabla va a tener las ventas relacionadas directamente con el canal y medio pago por el cual se vendio y el precio total de esa venta.
 CREATE TABLE INFORMADOS.BI_venta_total(
 id_venta int PRIMARY KEY,
@@ -168,15 +183,47 @@ importe_descuento decimal(18,2)
 --Esta tabla va a tener las ventas realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
 CREATE TABLE INFORMADOS.BI_ventas_x_productos(
 id_venta int REFERENCES INFORMADOS.BI_venta_total(id_venta),
-id_producto varchar(255) REFERENCES INFORMADOS.BI_productos(id_producto),
+id_producto nvarchar(50) REFERENCES INFORMADOS.BI_productos(id_producto),
 cantidad int, 
 precio_total_producto decimal(18,2)
 PRIMARY KEY(id_venta, id_producto)
 );
 
+
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas de hechos para el armado de las vistas --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE INFORMADOS.BI_fact_compra(
+    id_tiempo int,
+    id_producto nvarchar(50),
+    id_proveedor nvarchar(50),
+    cantidad int,
+    precio_unidad decimal(18, 2),
+	PRIMARY KEY (id_tiempo, id_producto, id_proveedor),
+	FOREIGN KEY (id_tiempo) REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
+	FOREIGN KEY (id_producto) REFERENCES INFORMADOS.BI_productos(id_producto),
+	FOREIGN KEY (id_proveedor) REFERENCES INFORMADOS.BI_proveedor(id_proveedor)
+
+);
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Creacion de funciones --
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_tiempo')
+	DROP FUNCTION INFORMADOS.get_tiempo
+GO
+
+CREATE FUNCTION INFORMADOS.get_tiempo(@fecha DATE)
+	RETURNS INT
+	AS
+	BEGIN
+	  RETURN ( select id_tiempo from INFORMADOS.BI_tiempo
+			   where año = year(@fecha) and mes = month(@fecha))
+	END
+GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de procedimientos tablas dimensionales--
@@ -243,8 +290,9 @@ AS
 BEGIN
 	PRINT 'Migracion de BI productos'
 	INSERT INTO INFORMADOS.BI_productos(id_producto,id_categoria,nombre_producto,descripcion_producto,material_producto,marca_producto)
-	SELECT *
-	FROM INFORMADOS.producto
+	SELECT p.id_producto, p.id_categoria ,p.nombre, p.descripcion, p.material, p.marca
+	FROM INFORMADOS.producto p INNER JOIN INFORMADOS.categoria_producto cp
+	ON p.id_categoria = cp.id_categoria
 END
 GO
 
@@ -439,6 +487,21 @@ BEGIN
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_proveedor')
+	DROP PROCEDURE sp_migrar_bi_proveedor
+GO
+
+CREATE PROCEDURE sp_migrar_bi_proveedor
+AS
+BEGIN
+	PRINT 'Migracion de BI proveedor'
+    INSERT INTO INFORMADOS.BI_proveedor (id_proveedor,razon_social,domicilio,mail)
+	SELECT DISTINCT id_proveedor, razon_social, direccion, mail
+	FROM INFORMADOS.proveedor
+	WHERE id_proveedor IS NOT NULL
+END
+GO
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_venta_total')
 	DROP PROCEDURE sp_migrar_bi_venta_total
 GO
@@ -520,6 +583,27 @@ solicitadas en la consigna
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de procedimientos tablas de hechos--
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_compra')
+	DROP PROCEDURE sp_migrar_fact_compra
+GO
+
+CREATE PROCEDURE sp_migrar_fact_compra
+AS
+BEGIN
+	PRINT 'Migracion de BI Hechos Compra'
+    INSERT INTO INFORMADOS.BI_fact_compra(id_tiempo, id_producto, id_proveedor, cantidad, precio_unidad) 
+    SELECT DISTINCT INFORMADOS.get_tiempo(fecha), vp.id_producto, id_proveedor, SUM(cantidad),
+	(SUM(cantidad * precio_unidad)/SUM(cantidad))
+    FROM INFORMADOS.compra c
+	INNER JOIN INFORMADOS.producto_por_compra ppc
+	ON ppc.id_compra = c.id_compra
+	INNER JOIN INFORMADOS.variante_producto vp
+	ON vp.id_variante_producto = ppc.id_variante_producto
+    GROUP BY INFORMADOS.get_tiempo(fecha), vp.id_producto, id_proveedor
+    
+END
+GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
@@ -727,14 +811,34 @@ GO
 -- VISTA 7: Valor promedio de envío por Provincia por Medio De Envío anual.
 -- columnas: provincia, medio_envio, año, valor
 
+
 -- VISTA 8: Aumento promedio de precios de cada proveedor anual.
--- Para calcular este indicador se debe tomar como referencia el máximo precio por año menos 
--- el mínimo todo esto divido el mínimo precio del año. Teniendo en cuenta 
--- que los precios siempre van en aumento.
--- columnas: proveedor, año, aumento_promedio
+-- Los 3 productos con mayor cantidad de reposición por mes. 
+
 
 -- VISTA 9: Los 3 productos con mayor cantidad de reposición por mes.
 -- columnas: año, mes, codigo_prod1, nombre_prod2, codigo_prod2, nombre_prod2, codigo_prod3, nombre_prod3
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_tres_productos_mayor_cantidad_reposicion_x_mes')
+	DROP VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
+GO
+
+CREATE VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes AS
+
+SELECT
+ dt.año as [Año],
+ dt.mes as [Mes],
+ hc.id_producto as [Producto]
+from INFORMADOS.BI_fact_compra hc
+INNER JOIN INFORMADOS.BI_tiempo dt
+ON hc.id_tiempo = dt.id_tiempo
+WHERE hc.id_producto IN 
+    (SELECT TOP 3 id_producto FROM INFORMADOS.BI_fact_compra
+    WHERE id_tiempo = dt.id_tiempo
+    GROUP BY id_producto
+    ORDER BY SUM(cantidad) DESC)
+GROUP BY dt.año, dt.mes, hc.id_producto
+GO
 
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
@@ -754,9 +858,11 @@ GO
 	EXECUTE sp_migrar_bi_clientes
 	EXECUTE sp_migrar_bi_tipo_envio
 	EXECUTE sp_migrar_bi_tipo_descuento
+	EXECUTE sp_migrar_bi_proveedor
 	EXECUTE sp_migrar_bi_venta_total
 	EXECUTE sp_migrar_bi_descuento_venta
 	EXECUTE sp_migrar_bi_ventas_x_productos
+	EXECUTE sp_migrar_fact_compra
 END TRY
 BEGIN CATCH
      ROLLBACK TRANSACTION;
@@ -775,9 +881,11 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_provincia)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tiempo)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tipo_descuento)
+	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_proveedor)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tipo_envio)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_venta_total)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_ventas_x_productos)
+    AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_compra)
 	)
    BEGIN
 	PRINT 'Tablas migradas correctamente.';
@@ -789,3 +897,6 @@ END CATCH
 	THROW 50002, 'Se encontraron errores al migrar las tablas. Ne se migraron datos.',1;
    END
 GO
+
+
+--SELECT * FROM INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
