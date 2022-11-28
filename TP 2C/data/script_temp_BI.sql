@@ -1,56 +1,59 @@
 USE GD2C2022
-
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas dimensionales --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo')
-	DROP TABLE LOS_QUERY.BI_tiempo_venta
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_categoria_producto')
-	DROP TABLE LOS_QUERY.BI_categoria_producto
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_productos')
-	DROP TABLE LOS_QUERY..BI_productos
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_canal_venta')
-	DROP TABLE LOS_QUERY.BI_canal_venta
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_venta')
-	DROP TABLE LOS_QUERY.BI_medio_pago_venta
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_compra')
-	DROP TABLE LOS_QUERY.BI_medio_pago_compra
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_compra_total')
-	DROP TABLE LOS_QUERY.BI_compra_total
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_ventas_x_productos')
+	DROP TABLE INFORMADOS.BI_ventas_x_productos
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_compras_x_producto')
-	DROP TABLE LOS_QUERY.BI_compras_x_producto
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario')
-	DROP TABLE LOS_QUERY.BI_rango_etario
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_provincia')
-	DROP TABLE LOS_QUERY.BI_provincia
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_clientes')
-	DROP TABLE LOS_QUERY.BI_clientes
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_envio')
-	DROP TABLE LOS_QUERY.BI_tipo_envio
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_descuento')
-	DROP TABLE LOS_QUERY.BI_tipo_descuento
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_venta_total')
-	DROP TABLE LOS_QUERY.BI_venta_total
+	DROP TABLE INFORMADOS.BI_compras_x_producto
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_descuento_venta')
-	DROP TABLE LOS_QUERY.BI_descuento_venta
+	DROP TABLE INFORMADOS.BI_descuento_venta
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_ventas_x_productos')
-	DROP TABLE LOS_QUERY.BI_ventas_x_productos
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_compra_total')
+	DROP TABLE INFORMADOS.BI_compra_total
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_compra')
+	DROP TABLE INFORMADOS.BI_medio_pago_compra
+
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_productos')
+	DROP TABLE INFORMADOS.BI_productos
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_venta_total')
+	DROP TABLE INFORMADOS.BI_venta_total
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_envio')
+	DROP TABLE INFORMADOS.BI_tipo_envio
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_descuento')
+	DROP TABLE INFORMADOS.BI_tipo_descuento
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_canal_venta')
+	DROP TABLE INFORMADOS.BI_canal_venta
+
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_venta')
+	DROP TABLE INFORMADOS.BI_medio_pago_venta
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_categoria_producto')
+	DROP TABLE INFORMADOS.BI_categoria_producto
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo')
+	DROP TABLE INFORMADOS.BI_tiempo
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_clientes')
+	DROP TABLE INFORMADOS.BI_clientes
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario')
+	DROP TABLE INFORMADOS.BI_rango_etario
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_provincia')
+	DROP TABLE INFORMADOS.BI_provincia
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_envios_por_provincia')
+	DROP TABLE INFORMADOS.BI_fact_envios_por_provincia
 
 --Esta table va a mostrar cada compra con el año y mes en el que se realizó.
 CREATE TABLE INFORMADOS.BI_tiempo(
