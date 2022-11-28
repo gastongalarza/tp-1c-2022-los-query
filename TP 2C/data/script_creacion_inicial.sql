@@ -226,6 +226,7 @@ id_venta bigint REFERENCES INFORMADOS.venta(id_venta),
 id_variante_producto nvarchar(50) REFERENCES INFORMADOS.variante_producto(id_variante_producto),
 cantidad int,
 precio_unidad decimal(18,2)
+PRIMARY KEY(id_venta, id_variante_producto)
 );
 
 CREATE TABLE INFORMADOS.medio_pago_compra(
@@ -540,11 +541,18 @@ AS
 BEGIN
 	PRINT 'Migracion de productos por venta'
 	INSERT INTO INFORMADOS.producto_por_venta(id_venta, id_variante_producto, cantidad, precio_unidad)
-	SELECT VENTA_CODIGO, PRODUCTO_VARIANTE_CODIGO, VENTA_PRODUCTO_CANTIDAD, VENTA_PRODUCTO_PRECIO
+	SELECT VENTA_CODIGO, PRODUCTO_VARIANTE_CODIGO, SUM(VENTA_PRODUCTO_CANTIDAD), VENTA_PRODUCTO_PRECIO
 	FROM gd_esquema.Maestra ma
 	WHERE VENTA_CODIGO IS NOT NULL AND PRODUCTO_VARIANTE_CODIGO IS NOT NULL
+	GROUP BY VENTA_CODIGO, PRODUCTO_VARIANTE_CODIGO, VENTA_PRODUCTO_PRECIO
 END
 GO
+
+SELECT VENTA_CODIGO, PRODUCTO_VARIANTE_CODIGO, count(distinct VENTA_PRODUCTO_CANTIDAD), count(distinct VENTA_PRODUCTO_PRECIO)
+FROM gd_esquema.Maestra ma
+WHERE VENTA_CODIGO IS NOT NULL AND PRODUCTO_VARIANTE_CODIGO IS NOT NULL
+GROUP BY VENTA_CODIGO, PRODUCTO_VARIANTE_CODIGO
+having count(distinct VENTA_PRODUCTO_PRECIO) > 1
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_compra')
 	DROP PROCEDURE sp_migrar_compra
