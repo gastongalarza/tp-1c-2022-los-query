@@ -234,6 +234,22 @@ BEGIN
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_aumento')
+	DROP FUNCTION INFORMADOS.get_aumento
+GO
+
+CREATE FUNCTION INFORMADOS.get_aumento(@anio int, @proveedor nvarchar(50), @producto nvarchar(50))
+RETURNS DECIMAL
+AS
+BEGIN
+	RETURN (SELECT (max(precio_unidad)-min(precio_unidad)) / min(precio_unidad)
+	 FROM INFORMADOS.BI_fact_compra hc
+	 INNER JOIN INFORMADOS.BI_tiempo t
+	 ON hc.id_tiempo = t.id_tiempo
+	 WHERE hc.id_producto = @producto and hc.id_proveedor = @proveedor and t.año = @anio)
+END
+GO
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de procedimientos tablas dimensionales--
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -713,10 +729,27 @@ GO
 -- VISTA 7: Valor promedio de envío por Provincia por Medio De Envío anual.
 -- columnas: provincia, medio_envio, año, valor
 
+-- VISTA 8: Aumento promedio de precios de cada proveedor anual. Para calcular este
+-- indicador se debe tomar como referencia el máximo precio por año menos
+-- el mínimo todo esto divido el mínimo precio del año. Teniendo en cuenta
+-- que los precios siempre van en aumento.
 
--- VISTA 8: Aumento promedio de precios de cada proveedor anual.
--- Los 3 productos con mayor cantidad de reposición por mes. 
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_aumento_promedio_precios_x_proveedor_anual')
+	DROP VIEW INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
+GO
 
+CREATE VIEW INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
+AS
+
+	SELECT DISTINCT t.año as [Año],
+	       hc.id_proveedor AS [Proveedor],
+		   hc.id_producto AS [Producto],
+		   AVG(INFORMADOS.get_aumento(t.año, hc.id_proveedor, hc.id_producto)) AS [Aumento promedio en precios]
+    FROM INFORMADOS.BI_fact_compra hc
+	INNER JOIN INFORMADOS.BI_tiempo t
+	ON hc.id_tiempo = t.id_tiempo
+    GROUP BY t.año, hc.id_proveedor, hc.id_producto
+GO
 
 -- VISTA 9: Los 3 productos con mayor cantidad de reposición por mes.
 -- columnas: año, mes, codigo_prod1, nombre_prod2, codigo_prod2, nombre_prod2, codigo_prod3, nombre_prod3
@@ -727,19 +760,19 @@ GO
 
 CREATE VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes AS
 
-SELECT
- dt.año as [Año],
- dt.mes as [Mes],
- hc.id_producto as [Producto]
-from INFORMADOS.BI_fact_compra hc
-INNER JOIN INFORMADOS.BI_tiempo dt
-ON hc.id_tiempo = dt.id_tiempo
-WHERE hc.id_producto IN 
-    (SELECT TOP 3 id_producto FROM INFORMADOS.BI_fact_compra
-    WHERE id_tiempo = dt.id_tiempo
-    GROUP BY id_producto
-    ORDER BY SUM(cantidad) DESC)
-GROUP BY dt.año, dt.mes, hc.id_producto
+	SELECT
+	 dt.año as [Año],
+	 dt.mes as [Mes],
+	 hc.id_producto as [Producto]
+	from INFORMADOS.BI_tiempo dt
+	INNER JOIN INFORMADOS.BI_fact_compra hc
+	ON hc.id_tiempo = dt.id_tiempo
+	WHERE hc.id_producto IN 
+		(SELECT TOP 3 id_producto FROM INFORMADOS.BI_fact_compra
+		WHERE id_tiempo = dt.id_tiempo
+		GROUP BY id_producto
+		ORDER BY SUM(cantidad) DESC)
+	GROUP BY dt.año, dt.mes, hc.id_producto
 GO
 
 ---------------------------------------------------
@@ -763,7 +796,7 @@ GO
 	EXECUTE sp_migrar_bi_proveedor
 	EXECUTE sp_migrar_bi_venta_total
 	EXECUTE sp_migrar_bi_descuento_venta
-	EXECUTE sp_migrar_bi_ventas_x_productos
+--	EXECUTE sp_migrar_bi_ventas_x_productos
 	EXECUTE sp_migrar_fact_compra
 /*END TRY
 BEGIN CATCH
@@ -801,4 +834,5 @@ END CATCH
 GO
 */
 
+--SELECT * FROM INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
 --SELECT * FROM INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
