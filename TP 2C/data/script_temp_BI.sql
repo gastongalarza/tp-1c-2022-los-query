@@ -7,6 +7,9 @@ USE GD2C2022
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_compra')
 	DROP TABLE INFORMADOS.BI_fact_compra
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_envio')
+	DROP TABLE INFORMADOS.BI_fact_envio
+
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_ventas_x_productos')
 	DROP TABLE INFORMADOS.BI_ventas_x_productos
 
@@ -58,8 +61,6 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_provincia')
 	DROP TABLE INFORMADOS.BI_provincia
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_envios_por_provincia')
-	DROP TABLE INFORMADOS.BI_fact_envios_por_provincia
 
 --Esta table va a mostrar cada compra con el año y mes en el que se realizó.
 CREATE TABLE INFORMADOS.BI_tiempo(
@@ -191,6 +192,7 @@ precio_total_producto decimal(18,2)
 PRIMARY KEY(id_venta, id_producto)
 );
 
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas de hechos para el armado de las vistas --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -204,6 +206,14 @@ precio_unidad decimal(18, 2),
 PRIMARY KEY (id_tiempo, id_producto, id_proveedor)
 );
 
+CREATE TABLE INFORMADOS.BI_fact_envio (
+    id_envio int,
+	id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
+	id_provincia int REFERENCES INFORMADOS.BI_provincia(id_provincia),
+	id_tipo_envio int REFERENCES INFORMADOS.BI_tipo_envio,
+	total_envios decimal(18,2),
+	PRIMARY KEY (id_envio,id_tiempo, id_provincia, id_tipo_envio)
+);
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de funciones --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -544,6 +554,25 @@ BEGIN
 END
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_envio')
+	DROP PROCEDURE sp_migrar_fact_envio
+GO
+
+CREATE PROCEDURE sp_migrar_fact_envio
+AS
+BEGIN
+	PRINT 'Migracion de BI Hechos Envio'
+    INSERT INTO INFORMADOS.BI_fact_envio(id_envio,id_tiempo, id_provincia, id_tipo_envio, total_envios) 
+    SELECT DISTINCT v.id_envio, INFORMADOS.get_tiempo(v.fecha), z.id_provincia, e.id_metodo_envio, SUM(e.precio)
+    FROM INFORMADOS.venta v
+	INNER JOIN INFORMADOS.envio e
+	ON v.id_envio = e.id_envio
+	INNER JOIN INFORMADOS.zona z
+	ON e.id_zona = z.id_zona
+    GROUP BY v.id_envio, INFORMADOS.get_tiempo(v.fecha), z.id_provincia, e.id_metodo_envio
+END
+GO
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -729,6 +758,29 @@ GO
 -- VISTA 7: Valor promedio de envío por Provincia por Medio De Envío anual.
 -- columnas: provincia, medio_envio, año, valor
 
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_valor_promedio_envio_x_provincia_x_medio_envio_anual')
+	DROP VIEW INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
+GO
+
+CREATE VIEW INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
+AS
+    SELECT 
+	t.año AS [Año],
+	p.nombre AS [Provincia],
+	te.nombre AS [Tipo de envio],
+	AVG(he.total_envios) as [Promedio Envios]
+    FROM INFORMADOS.BI_fact_envio he
+	INNER JOIN INFORMADOS.BI_tiempo t
+    ON he.id_tiempo = t.id_tiempo
+    INNER JOIN INFORMADOS.BI_provincia p
+    ON he.id_provincia = p.id_provincia
+    INNER JOIN INFORMADOS.BI_tipo_envio te
+    ON he.id_tipo_envio = te.id_tipo_envio
+    GROUP BY t.año, p.nombre, te.nombre
+
+GO
+
+
 -- VISTA 8: Aumento promedio de precios de cada proveedor anual. Para calcular este
 -- indicador se debe tomar como referencia el máximo precio por año menos
 -- el mínimo todo esto divido el mínimo precio del año. Teniendo en cuenta
@@ -741,7 +793,7 @@ GO
 CREATE VIEW INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
 AS
 
-	SELECT DISTINCT t.año as [Año],
+	SELECT t.año as [Año],
 	       hc.id_proveedor AS [Proveedor],
 		   hc.id_producto AS [Producto],
 		   AVG(INFORMADOS.get_aumento(t.año, hc.id_proveedor, hc.id_producto)) AS [Aumento promedio en precios]
@@ -798,6 +850,7 @@ GO
 	EXECUTE sp_migrar_bi_descuento_venta
 --	EXECUTE sp_migrar_bi_ventas_x_productos
 	EXECUTE sp_migrar_fact_compra
+	EXECUTE sp_migrar_fact_envio
 /*END TRY
 BEGIN CATCH
      ROLLBACK TRANSACTION;
@@ -821,6 +874,7 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_venta_total)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_ventas_x_productos)
     AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_compra)
+	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_envio)
 	)
    BEGIN
 	PRINT 'Tablas migradas correctamente.';
@@ -834,5 +888,6 @@ END CATCH
 GO
 */
 
+--SELECT * FROM INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
 --SELECT * FROM INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
 --SELECT * FROM INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
