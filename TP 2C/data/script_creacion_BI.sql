@@ -424,7 +424,7 @@ BEGIN
 END
 GO
 
-select * from INFORMADOS.provincia, INFORMADOS.BI_provincia
+
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_envio')
 	DROP PROCEDURE sp_migrar_bi_tipo_envio
@@ -517,16 +517,6 @@ BEGIN
 END
 GO
 
-SELECT vp.id_producto
-FROM INFORMADOS.producto_por_venta pv
-LEFT JOIN INFORMADOS.variante_producto vp ON pv.id_variante_producto = vp.id_variante_producto
-group by vp.id_producto
-having count(pv.id_venta) > 1
-
-select id_venta, id_variante_producto
-from informados.producto_por_venta
-where id_venta = 126283
-
 /*
 Hasta acá estas tablas se usarian para realizar la primer Vista solicitada, y a su vez vienen a ser algunas dimensiones MINIMAS
 solicitadas en la consigna
@@ -587,7 +577,7 @@ IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_ganancia_mensual_canal
 	DROP VIEW vw_ganancia_mensual_canal
 GO
 
--- Por qué se dividía por 4?
+
 CREATE VIEW vw_ganancia_mensual_canal
 AS
 SELECT  ti.año, ti.mes, cv.nombre_canal,
@@ -634,13 +624,6 @@ GROUP BY vp.id_producto, ti.año, ti.mes
 ORDER BY porcentaje_rentabilidad desc
 GO
 
--- La consigna dice 5 categorias mas vendidas, pero son solo 3 las categorias de productos.
-/*
-CREATE VIEW vw_categorias_vendidas_mensual
-AS
-SELECT 1 AS ASD
-*/
-
 -- VISTA 3: Las 5 categorías de productos más vendidos por rango etario de clientes por mes. 
 -- columnas: rango_etareo, año, mes, categoria_nombre
 
@@ -684,28 +667,6 @@ JOIN INFORMADOS.BI_descuento_venta dv ON vt.id_venta = dv.id_venta
 JOIN INFORMADOS.BI_tipo_descuento td ON dv.id_tipo_descuento_venta = td.id_tipo_descuento_venta
 GROUP BY mp.nombre_medio_pago, ti.mes, td.concepto_descuento, dv.importe_descuento
 GO
-
-/*
-select vt.id_venta,vt.precio_total_venta,sum(mp.costo_medio_pago),(CASE WHEN td.concepto_descuento=mp.nombre_medio_pago THEN dv.importe_descuento ELSE 0 end)
-from INFORMADOS.BI_venta_total vt 
-JOIN INFORMADOS.BI_tiempo_venta tv
-ON vt.id_venta=tv.id_venta 
-JOIN INFORMADOS.BI_medio_pago_venta mp
-ON mp.id_medio_pago_venta=vt.id_medio_pago_venta
-JOIN INFORMADOS.BI_descuento_venta dv
-ON vt.id_venta=dv.id_venta
-JOIN INFORMADOS.BI_tipo_descuento td
-ON dv.id_tipo_descuento_venta=td.id_tipo_descuento_venta
-where tv.mes = 9 and vt.id_medio_pago_venta = 2
-group by vt.id_venta,vt.precio_total_venta
-
-select * from INFORMADOS.BI_descuento_venta where id_venta=125972
-
-select * from INFORMADOS.BI_venta_total where id_venta=125972
-*/
---5269916140.93 - 13900.00
---Tarjeta 2
---mes 9
 
 
 -- VISTA 5: Importe total en descuentos aplicados según su tipo de descuento, por canal de venta, por mes.
@@ -830,9 +791,9 @@ GO
 ---------------------------------------------------
 -- MIGRACION A TRAVES DE PROCEDIMIENTOS
 ---------------------------------------------------
-/*
- BEGIN TRANSACTION
- BEGIN TRY*/
+
+BEGIN TRANSACTION
+BEGIN TRY
     EXECUTE sp_migrar_bi_tiempos
 	EXECUTE sp_migrar_bi_categoria_producto
 	EXECUTE sp_migrar_bi_productos
@@ -848,10 +809,9 @@ GO
 	EXECUTE sp_migrar_bi_proveedor
 	EXECUTE sp_migrar_bi_venta_total
 	EXECUTE sp_migrar_bi_descuento_venta
---	EXECUTE sp_migrar_bi_ventas_x_productos
 	EXECUTE sp_migrar_fact_compra
 	EXECUTE sp_migrar_fact_envio
-/*END TRY
+END TRY
 BEGIN CATCH
      ROLLBACK TRANSACTION;
 	 THROW 50001, 'Error al migrar las tablas.',1;
@@ -872,7 +832,6 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_proveedor)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tipo_envio)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_venta_total)
-	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_ventas_x_productos)
     AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_compra)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_envio)
 	)
@@ -886,8 +845,3 @@ END CATCH
 	THROW 50002, 'Se encontraron errores al migrar las tablas. Ne se migraron datos.',1;
    END
 GO
-*/
-
---SELECT * FROM INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
---SELECT * FROM INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
---SELECT * FROM INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
