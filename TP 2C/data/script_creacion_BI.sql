@@ -13,17 +13,8 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_envio')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_ventas_x_productos')
 	DROP TABLE INFORMADOS.BI_ventas_x_productos
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_compras_x_producto')
-	DROP TABLE INFORMADOS.BI_compras_x_producto
-
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_descuento_venta')
 	DROP TABLE INFORMADOS.BI_descuento_venta
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_compra_total')
-	DROP TABLE INFORMADOS.BI_compra_total
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_compra')
-	DROP TABLE INFORMADOS.BI_medio_pago_compra
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_productos')
 	DROP TABLE INFORMADOS.BI_productos
@@ -97,28 +88,6 @@ CREATE TABLE INFORMADOS.BI_medio_pago_venta(
 id_medio_pago_venta int PRIMARY KEY,
 nombre_medio_pago varchar(255),
 costo_medio_pago decimal(18,2)
-);
-
---Esta tabla va a tener la misma info que la tabla medio pago compra del transaccional
-CREATE TABLE INFORMADOS.BI_medio_pago_compra(
-id_medio_pago_compra int PRIMARY KEY,
-nombre_medio_pago varchar(255)
-);
-
---Esta tabla va a tener las ventas relacionadas directamente con el canal y medio pago por el cual se vendio y el precio total de esa venta.
-CREATE TABLE INFORMADOS.BI_compra_total(
-id_compra int PRIMARY KEY,
-id_medio_pago_compra int REFERENCES INFORMADOS.BI_medio_pago_compra(id_medio_pago_compra),
-id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
-costo_total_compra decimal(18,2)
-);
-
---Esta tabla va a tener las compras realizadas, con la informacion de cada producto por separado, con sus cantidades y precio total de ese producto.
-CREATE TABLE INFORMADOS.BI_compras_x_producto(
-id_compra int REFERENCES INFORMADOS.BI_compra_total(id_compra),
-id_producto nvarchar(50) REFERENCES INFORMADOS.BI_productos(id_producto),
-cantidad int, 
-costo_total_producto decimal(18,2)
 );
 
 --Tabla minima de RANGO ETARIO CLIENTE
@@ -203,6 +172,7 @@ id_producto nvarchar(50) REFERENCES INFORMADOS.BI_productos(id_producto),
 id_proveedor nvarchar(50) REFERENCES INFORMADOS.BI_proveedor(id_proveedor),
 cantidad int,
 precio_unidad decimal(18, 2),
+costo_total decimal(18, 2),
 PRIMARY KEY (id_tiempo, id_producto, id_proveedor)
 );
 
@@ -337,44 +307,6 @@ BEGIN
 	PRINT 'Migracion de BI medio de pago venta'
 	INSERT INTO INFORMADOS.BI_medio_pago_venta
 	SELECT * FROM INFORMADOS.medio_pago_venta
-
-	PRINT 'Migracion de BI medio de pago compra'
-	INSERT INTO INFORMADOS.BI_medio_pago_compra
-	SELECT * FROM INFORMADOS.medio_pago_compra
-END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_compra_total')
-	DROP PROCEDURE sp_migrar_bi_compra_total
-GO
-
-CREATE PROCEDURE sp_migrar_bi_compra_total
-AS
-BEGIN
-	PRINT 'Migracion de BI compra total'
-	INSERT INTO INFORMADOS.BI_compra_total(id_compra, id_medio_pago_compra, id_tiempo, costo_total_compra)
-	SELECT cr.id_compra, cr.id_medio_pago, t.id_tiempo,
-		sum(cp.precio_unidad * cp.cantidad)
-	FROM INFORMADOS.compra cr
-	LEFT JOIN INFORMADOS.producto_por_compra cp ON cr.id_compra = cp.id_compra
-	JOIN INFORMADOS.BI_tiempo t ON YEAR(cr.fecha) = t.año AND MONTH(cr.fecha) = t.mes
-	GROUP BY cr.id_compra, cr.id_medio_pago, t.id_tiempo
-END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_compras_x_producto')
-	DROP PROCEDURE sp_migrar_bi_compras_x_producto
-GO
-
-CREATE PROCEDURE sp_migrar_bi_compras_x_producto
-AS
-BEGIN
-	PRINT 'Migracion de BI compras realizadas'
-	INSERT INTO INFORMADOS.BI_compras_x_producto(id_compra, id_producto, cantidad, costo_total_producto)
-	SELECT pc.id_compra, vp.id_producto, pc.cantidad,
-		(pc.cantidad * pc.precio_unidad) AS costo_total_producto
-	FROM INFORMADOS.producto_por_compra pc
-	LEFT JOIN INFORMADOS.variante_producto vp ON pc.id_variante_producto = vp.id_variante_producto
 END
 GO
 
@@ -534,9 +466,9 @@ CREATE PROCEDURE sp_migrar_fact_compra
 AS
 BEGIN
 	PRINT 'Migracion de BI Hechos Compra'
-    INSERT INTO INFORMADOS.BI_fact_compra(id_tiempo, id_producto, id_proveedor, cantidad, precio_unidad) 
+    INSERT INTO INFORMADOS.BI_fact_compra(id_tiempo, id_producto, id_proveedor, cantidad, precio_unidad, costo_total) 
     SELECT DISTINCT INFORMADOS.get_tiempo(fecha), vp.id_producto, id_proveedor, SUM(cantidad),
-		SUM(cantidad * precio_unidad) / SUM(cantidad)
+		SUM(cantidad * precio_unidad) / SUM(cantidad), SUM(cantidad * precio_unidad)
     FROM INFORMADOS.compra c
 	INNER JOIN INFORMADOS.producto_por_compra ppc ON ppc.id_compra = c.id_compra
 	INNER JOIN INFORMADOS.variante_producto vp ON vp.id_variante_producto = ppc.id_variante_producto
@@ -581,12 +513,12 @@ GO
 CREATE VIEW vw_ganancia_mensual_canal
 AS
 SELECT  ti.año, ti.mes, cv.nombre_canal,
-	SUM(vt.precio_total_venta) - ROUND(SUM(ct.costo_total_compra)/* / 4*/, 2) - ROUND(SUM(mp.costo_medio_pago), 2) AS ganancia
+	SUM(vt.precio_total_venta) - ROUND(SUM(fc.costo_total)/* / 4*/, 2) - ROUND(SUM(mp.costo_medio_pago), 2) AS ganancia
 FROM INFORMADOS.BI_tiempo ti
 LEFT JOIN INFORMADOS.BI_venta_total vt ON vt.id_tiempo = ti.id_tiempo
 LEFT JOIN INFORMADOS.BI_canal_venta cv ON vt.id_canal_venta = cv.id_canal_venta
 LEFT JOIN INFORMADOS.BI_medio_pago_venta mp ON vt.id_medio_pago_venta = mp.id_medio_pago_venta
-LEFT JOIN INFORMADOS.BI_compra_total ct ON ct.id_tiempo = ti.id_tiempo
+LEFT JOIN INFORMADOS.BI_fact_compra fc ON fc.id_tiempo = ti.id_tiempo
 GROUP BY ti.año, ti.mes, cv.nombre_canal
 GO
 
@@ -607,10 +539,10 @@ AS
 SELECT TOP 5
 	vp.id_producto,
 	((sum(vp.precio_total_producto)
-		- (SELECT sum(costo_total_producto)
-			FROM INFORMADOS.BI_compras_x_producto cp
+		- (SELECT sum(fc.costo_total)
+			FROM INFORMADOS.BI_fact_compra fc
 			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-				and cp.id_producto = vp.id_producto)
+				and fc.id_producto = vp.id_producto)
 	) /	(SELECT sum(vp2.precio_total_producto) 
 		FROM INFORMADOS.BI_ventas_x_productos vp2
 		WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
@@ -799,8 +731,6 @@ BEGIN TRY
 	EXECUTE sp_migrar_bi_productos
 	EXECUTE sp_migrar_bi_canal_venta
 	EXECUTE sp_migrar_bi_medio_pago
-	EXECUTE sp_migrar_bi_compra_total
-	EXECUTE sp_migrar_bi_compras_x_producto
 	EXECUTE sp_migrar_bi_rango_etario
 	EXECUTE sp_migrar_bi_provincia
 	EXECUTE sp_migrar_bi_clientes
@@ -821,10 +751,7 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_categoria_producto)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_clientes)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_rango_etario)
-	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_compra_total)
-	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_compras_x_producto)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_medio_pago_venta)
-	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_medio_pago_compra)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_productos)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_provincia)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tiempo)
