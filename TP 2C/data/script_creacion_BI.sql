@@ -85,7 +85,7 @@ costo_canal decimal(18,2)
 
 
 CREATE TABLE INFORMADOS.BI_tipo_descuento(
-id_descuento int IDENTITY(1, 1) PRIMARY KEY,
+id_tipo_descuento int IDENTITY(1, 1) PRIMARY KEY,
 tipo_descuento nvarchar(255)
 );
 
@@ -150,16 +150,16 @@ cantidad_productos int,
 cantidad_ventas int
 );
 
-/*
+
 CREATE TABLE INFORMADOS.BI_fact_descuento(
-id_descuento int PRIMARY KEY, 
+id_descuento int IDENTITY(1,1) PRIMARY KEY, 
 id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
 id_tipo_descuento_venta int REFERENCES INFORMADOS.BI_tipo_descuento(id_tipo_descuento),
+id_canal int REFERENCES INFORMADOS.BI_canal_venta(id_canal_venta),
 id_medio_pago_venta int REFERENCES INFORMADOS.BI_medio_pago_venta(id_medio_pago_venta),
-importe_descuento decimal(18,2)
+importe_total_descuento decimal(18,2)
 );
 
-*/
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de funciones --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -304,6 +304,7 @@ BEGIN
 END
 GO
 
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_medio_pago_venta')
 	DROP PROCEDURE sp_migrar_bi_medio_pago_venta
 GO
@@ -407,7 +408,7 @@ BEGIN
 	INSERT INTO INFORMADOS.BI_fact_venta(id_canal_venta, id_medio_pago_venta, id_tiempo,
 		id_rango_etario, id_producto, precio_total, cantidad_productos, cantidad_ventas)
 	SELECT DISTINCT ve.id_canal, ve.id_medio_pago_venta, INFORMADOS.get_tiempo(ve.fecha),
-		INFORMADOS.get_rango_etario(c.fecha_nacimiento), vp.id_producto, SUM(ppv.cantidad) * COUNT(ve.id_venta),
+		INFORMADOS.get_rango_etario(c.fecha_nacimiento), vp.id_producto, SUM(ppv.cantidad * ppv.precio_unidad),
 		SUM(ppv.cantidad), COUNT(ve.id_venta)
 	FROM INFORMADOS.venta ve
 	JOIN INFORMADOS.cliente c ON ve.id_cliente = c.id_cliente
@@ -417,35 +418,61 @@ BEGIN
 END
 GO
 
-/*
+
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_descuento')
 	DROP PROCEDURE sp_migrar_fact_descuento
 GO
 
---no se me ocurre como migrarlo que no sea otra manera que haciendo un cursor por cada venta que se agrega en fact_venta y agregando todos los descuentos
---de esa venta a la tabla esta
 CREATE PROCEDURE sp_migrar_fact_descuento
 AS
 BEGIN
-	PRINT 'Migracion de BI descuento'
-    INSERT INTO INFORMADOS.BI_fact_descuento(id_descuento_venta, id_tipo_descuento_venta, id_venta, importe_descuento)
-	SELECT DISTINCT dv.id_descuento_venta
-	FROM INFORMADOS.descuento_venta dv
-END
+	PRINT 'Migracion de BI Hecho descuento'
+    INSERT INTO INFORMADOS.BI_fact_descuento(id_tiempo, id_tipo_descuento_venta, id_canal, id_medio_pago_venta, importe_total_descuento)
+	SELECT DISTINCT INFORMADOS.get_tiempo(v.fecha),
+	                (SELECT td.id_tipo_descuento from INFORMADOS.BI_tipo_descuento td WHERE td.tipo_descuento = mpv.nombre),
+					v.id_canal,
+					v.id_medio_pago_venta,
+					(SUM(ppv.precio_unidad * ppv.cantidad) * (mpv.porcentaje_descuento))
+	FROM INFORMADOS.venta v
+	INNER JOIN INFORMADOS.medio_pago_venta mpv
+	ON v.id_medio_pago_venta = mpv.id_medio_pago_venta
+    INNER JOIN INFORMADOS.producto_por_venta ppv
+	ON v.id_venta = ppv.id_venta
+	WHERE mpv.porcentaje_descuento IS NOT NULL
+    GROUP BY INFORMADOS.get_tiempo(v.fecha), v.id_canal, v.id_medio_pago_venta, mpv.nombre, mpv.porcentaje_descuento
+	
+	UNION
+	
+	SELECT DISTINCT INFORMADOS.get_tiempo(v.fecha),
+	                (SELECT td.id_tipo_descuento from INFORMADOS.BI_tipo_descuento td WHERE td.tipo_descuento = 'CUPON'),
+					v.id_canal,
+					v.id_medio_pago_venta,
+					SUM(cpv.importe_cupon)
+	FROM INFORMADOS.venta v
+	INNER JOIN INFORMADOS.medio_pago_venta mpv
+	ON v.id_medio_pago_venta = mpv.id_medio_pago_venta
+    INNER JOIN INFORMADOS.cupon_por_venta cpv
+	ON v.id_venta = cpv.id_venta
+	WHERE cpv.importe_cupon IS NOT NULL
+    GROUP BY INFORMADOS.get_tiempo(v.fecha), v.id_canal, v.id_medio_pago_venta
 
-AS
-BEGIN
-	PRINT 'Migracion de BI Hechos Envio'
-    INSERT INTO INFORMADOS.BI_fact_envio(id_envio,id_tiempo, id_provincia, id_tipo_envio, cantidad_envios, costo_total) 
-    SELECT DISTINCT v.id_envio, INFORMADOS.get_tiempo(v.fecha), z.id_provincia, e.id_metodo_envio, COUNT(*), SUM(e.precio)
-    FROM INFORMADOS.venta v
-	INNER JOIN INFORMADOS.envio e ON v.id_envio = e.id_envio
-	INNER JOIN INFORMADOS.zona z ON e.id_zona = z.id_zona
-    GROUP BY v.id_envio, INFORMADOS.get_tiempo(v.fecha), z.id_provincia, e.id_metodo_envio
-END
+	UNION
 
+	SELECT DISTINCT INFORMADOS.get_tiempo(v.fecha),
+	                (SELECT td.id_tipo_descuento from INFORMADOS.BI_tipo_descuento td WHERE td.tipo_descuento = 'ESPECIAL'),
+					v.id_canal,
+					v.id_medio_pago_venta,
+					SUM(dv.importe_descuento)
+	FROM INFORMADOS.venta v
+	INNER JOIN INFORMADOS.medio_pago_venta mpv
+	ON v.id_medio_pago_venta = mpv.id_medio_pago_venta
+    INNER JOIN INFORMADOS.descuento_venta dv
+	ON v.id_venta = dv.id_venta
+	WHERE dv.importe_descuento IS NOT NULL
+    GROUP BY INFORMADOS.get_tiempo(v.fecha), v.id_canal, v.id_medio_pago_venta
+END
 GO
-*/
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -454,7 +481,29 @@ GO
 --por medio de pago (en caso que aplique) y descuentos por medio de pago
 --(en caso que aplique).
 
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_importe_total_por_medio_pago_x_mes_aplicando_descuentos')
+	DROP VIEW INFORMADOS.vw_importe_total_por_medio_pago_x_mes_aplicando_descuentos
+GO
 
+CREATE VIEW INFORMADOS.vw_importe_total_por_medio_pago_x_mes_aplicando_descuentos
+AS
+	SELECT
+	t.año AS [Año],
+	t.mes AS [Mes],
+	hv.id_medio_pago_venta AS [Medio Pago],
+	(SUM(precio_total) - SUM(mpv.costo_medio_pago)
+	
+					   - (SELECT SUM(hd.importe_total_descuento) 
+						  FROM INFORMADOS.BI_fact_descuento hd 
+						  WHERE hv.id_medio_pago_venta = hd.id_medio_pago_venta and hv.id_tiempo = hd.id_tiempo)
+	) AS [Total de Ingresos]
+	FROM INFORMADOS.BI_fact_venta hv
+	INNER JOIN INFORMADOS.BI_medio_pago_venta mpv
+	ON hv.id_medio_pago_venta = mpv.id_medio_pago_venta
+	INNER JOIN INFORMADOS.BI_tiempo t
+	ON hv.id_tiempo = t.id_tiempo
+	GROUP BY t.año, t.mes, hv.id_medio_pago_venta, hv.id_tiempo
+GO
 
 --VISTA 5: Importe total en descuentos aplicados según su tipo de descuento, por
 --canal de venta, por mes. Se entiende por tipo de descuento como los
@@ -556,7 +605,7 @@ BEGIN TRY
 	EXECUTE sp_migrar_fact_compra
 	EXECUTE sp_migrar_fact_envio
 	EXECUTE sp_migrar_fact_venta
---	EXECUTE sp_migrar_fact_descuento
+	EXECUTE sp_migrar_fact_descuento
 END TRY
 BEGIN CATCH
      ROLLBACK TRANSACTION;
@@ -576,7 +625,7 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_venta)
     AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_compra)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_envio)
---	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_descuento)
+	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_descuento)
 	)
 
    BEGIN
@@ -590,7 +639,7 @@ END CATCH
    END
 GO
 
-
+--SELECT * FROM INFORMADOS.vw_importe_total_por_medio_pago_x_mes_aplicando_descuentos
 --SELECT * FROM INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
 --SELECT * FROM INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
 --SELECT * FROM INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
