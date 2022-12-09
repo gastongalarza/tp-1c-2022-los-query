@@ -423,7 +423,77 @@ GO
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- VISTA 7: Valor promedio de envío por Provincia por Medio De Envío anual.
+-- columnas: provincia, medio_envio, año, valor
 
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_valor_promedio_envio_x_provincia_x_medio_envio_anual')
+	DROP VIEW INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
+GO
+
+CREATE VIEW INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
+AS
+    SELECT 
+	t.año AS [Año],
+	p.nombre AS [Provincia],
+	te.nombre AS [Tipo de envio],
+	AVG(he.costo_total) as [Promedio Envios]
+    FROM INFORMADOS.BI_fact_envio he
+	INNER JOIN INFORMADOS.BI_tiempo t
+    ON he.id_tiempo = t.id_tiempo
+    INNER JOIN INFORMADOS.BI_provincia p
+    ON he.id_provincia = p.id_provincia
+    INNER JOIN INFORMADOS.BI_tipo_envio te
+    ON he.id_tipo_envio = te.id_tipo_envio
+    GROUP BY t.año, p.nombre, te.nombre
+
+GO
+
+
+-- VISTA 8: Aumento promedio de precios de cada proveedor anual. Para calcular este
+-- indicador se debe tomar como referencia el máximo precio por año menos
+-- el mínimo todo esto divido el mínimo precio del año. Teniendo en cuenta
+-- que los precios siempre van en aumento.
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_aumento_promedio_precios_x_proveedor_anual')
+	DROP VIEW INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
+GO
+
+CREATE VIEW INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
+AS
+
+	SELECT t.año as [Año],
+	       hc.id_proveedor AS [Proveedor],
+		   hc.id_producto AS [Producto],
+		   AVG(INFORMADOS.get_aumento(t.año, hc.id_proveedor, hc.id_producto)) AS [Aumento promedio en precios]
+    FROM INFORMADOS.BI_fact_compra hc
+	INNER JOIN INFORMADOS.BI_tiempo t
+	ON hc.id_tiempo = t.id_tiempo
+    GROUP BY t.año, hc.id_proveedor, hc.id_producto
+GO
+
+-- VISTA 9: Los 3 productos con mayor cantidad de reposición por mes.
+-- columnas: año, mes, codigo_prod1, nombre_prod2, codigo_prod2, nombre_prod2, codigo_prod3, nombre_prod3
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_tres_productos_mayor_cantidad_reposicion_x_mes')
+	DROP VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
+GO
+
+CREATE VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes AS
+
+	SELECT
+	 dt.año as [Año],
+	 dt.mes as [Mes],
+	 hc.id_producto as [Producto]
+	from INFORMADOS.BI_tiempo dt
+	INNER JOIN INFORMADOS.BI_fact_compra hc
+	ON hc.id_tiempo = dt.id_tiempo
+	WHERE hc.id_producto IN 
+		(SELECT TOP 3 id_producto FROM INFORMADOS.BI_fact_compra
+		WHERE id_tiempo = dt.id_tiempo
+		GROUP BY id_producto
+		ORDER BY SUM(cantidad) DESC)
+	GROUP BY dt.año, dt.mes, hc.id_producto
+GO
 
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -478,3 +548,8 @@ END CATCH
 	THROW 50002, 'Se encontraron errores al migrar las tablas. No se migraron datos.',1;
    END
 GO
+
+
+--SELECT * FROM INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
+--SELECT * FROM INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
+--SELECT * FROM INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
