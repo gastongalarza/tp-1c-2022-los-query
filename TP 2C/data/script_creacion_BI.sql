@@ -481,11 +481,11 @@ GO
 --por medio de pago (en caso que aplique) y descuentos por medio de pago
 --(en caso que aplique).
 
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_importe_total_por_medio_pago_x_mes_aplicando_descuentos')
-	DROP VIEW INFORMADOS.vw_importe_total_por_medio_pago_x_mes_aplicando_descuentos
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_total_inngresos_por_medio_pago_x_mes_aplicando_descuentos')
+	DROP VIEW INFORMADOS.vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos
 GO
 
-CREATE VIEW INFORMADOS.vw_importe_total_por_medio_pago_x_mes_aplicando_descuentos
+CREATE VIEW INFORMADOS.vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos
 AS
 	SELECT
 	t.año AS [Año],
@@ -510,6 +510,24 @@ GO
 --correspondientes a envío, medio de pago, cupones, etc). 
 
 
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento')
+	DROP VIEW INFORMADOS.vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento
+GO
+
+CREATE VIEW INFORMADOS.vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento
+AS
+    SELECT
+	t.año AS [Año],
+	t.mes AS [Mes],
+	cv.nombre_canal AS [Canal de Venta],
+	SUM(hd.importe_total_descuento) AS [Importe total descuentos]
+	FROM INFORMADOS.BI_fact_descuento hd
+    INNER JOIN INFORMADOS.BI_tiempo t
+	ON hd.id_tiempo = t.id_tiempo
+	INNER JOIN INFORMADOS.BI_canal_venta cv
+	ON hd.id_canal = cv.id_canal_venta
+    GROUP BY t.año, t.mes, cv.nombre_canal
+GO
 
 
 
@@ -639,7 +657,8 @@ END CATCH
    END
 GO
 
---SELECT * FROM INFORMADOS.vw_importe_total_por_medio_pago_x_mes_aplicando_descuentos
+--SELECT * FROM INFORMADOS.vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos
+--SELECT * FROM INFORMADOS.vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento
 --SELECT * FROM INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
 --SELECT * FROM INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
 --SELECT * FROM INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
