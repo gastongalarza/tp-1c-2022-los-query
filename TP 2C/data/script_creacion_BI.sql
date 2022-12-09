@@ -14,38 +14,38 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_envio')
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_compra')
 	DROP TABLE INFORMADOS.BI_fact_compra
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_proveedor')
-	DROP TABLE INFORMADOS.BI_fact_proveedor
 
 --Dropeo Tablas dimensionales
 
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_provincia')
-	DROP TABLE INFORMADOS.BI_provincia
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_envio')
-	DROP TABLE INFORMADOS.BI_tipo_envio
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_venta')
-	DROP TABLE INFORMADOS.BI_medio_pago_venta
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_descuento')
-	DROP TABLE INFORMADOS.BI_tipo_descuento
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_canal_venta')
-	DROP TABLE INFORMADOS.BI_canal_venta
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario')
-	DROP TABLE INFORMADOS.BI_rango_etario
-
-IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_productos')
-	DROP TABLE INFORMADOS.BI_productos
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_producto')
+	DROP TABLE INFORMADOS.BI_producto
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_categoria_producto')
 	DROP TABLE INFORMADOS.BI_categoria_producto
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_envio')
+	DROP TABLE INFORMADOS.BI_tipo_envio
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tipo_descuento')
+	DROP TABLE INFORMADOS.BI_tipo_descuento
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_proveedor')
+	DROP TABLE INFORMADOS.BI_proveedor
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_canal_venta')
+	DROP TABLE INFORMADOS.BI_canal_venta
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_medio_pago_venta')
+	DROP TABLE INFORMADOS.BI_medio_pago_venta
+
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_tiempo')
 	DROP TABLE INFORMADOS.BI_tiempo
 
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario')
+	DROP TABLE INFORMADOS.BI_rango_etario
+
+IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_provincia')
+	DROP TABLE INFORMADOS.BI_provincia
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas dimensionales --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -104,21 +104,21 @@ id_provincia int PRIMARY KEY,
 nombre nvarchar(255)
 );
 
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
--- Creacion de tablas de hechos para el armado de las vistas --
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-CREATE TABLE INFORMADOS.BI_fact_proveedor(
+CREATE TABLE INFORMADOS.BI_proveedor(
 id_proveedor nvarchar(50) PRIMARY KEY,
 razon_social nvarchar(255),
 domicilio nvarchar(255),
 mail nvarchar(255)
 );
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Creacion de tablas de hechos para el armado de las vistas --
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 CREATE TABLE INFORMADOS.BI_fact_compra(
 id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
 id_producto nvarchar(50) REFERENCES INFORMADOS.BI_producto(id_producto),
-id_proveedor nvarchar(50) REFERENCES INFORMADOS.BI_fact_proveedor(id_proveedor),
+id_proveedor nvarchar(50) REFERENCES INFORMADOS.BI_proveedor(id_proveedor),
 cantidad int,
 precio_unidad decimal(18, 2),
 costo_total decimal(18, 2),
@@ -331,10 +331,6 @@ BEGIN
 END
 GO
 
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
--- Creacion de procedimientos tablas de hechos--
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_proveedor')
 	DROP PROCEDURE sp_migrar_bi_proveedor
 GO
@@ -343,10 +339,16 @@ CREATE PROCEDURE sp_migrar_bi_proveedor
 AS
 BEGIN
 	PRINT 'Migracion de BI proveedor'
-    INSERT INTO INFORMADOS.BI_proveedor
-	SELECT DISTINCT * FROM INFORMADOS.proveedor
+    INSERT INTO INFORMADOS.BI_proveedor (id_proveedor, razon_social, domicilio, mail)
+	SELECT DISTINCT id_proveedor, razon_social, direccion, mail
+	FROM INFORMADOS.proveedor
+	WHERE id_proveedor IS NOT NULL
 END
 GO
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Creacion de procedimientos tablas de hechos--
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_compra')
 	DROP PROCEDURE sp_migrar_fact_compra
@@ -382,11 +384,11 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_fact_venta')
-	DROP PROCEDURE sp_migrar_bi_fact_venta
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_venta')
+	DROP PROCEDURE sp_migrar_fact_venta
 GO
 
-CREATE PROCEDURE sp_migrar_bi_fact_venta
+CREATE PROCEDURE sp_migrar_fact_venta
 AS
 BEGIN
 	PRINT 'Migracion de BI fact venta'
@@ -403,16 +405,16 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_descuento_venta')
-	DROP PROCEDURE sp_migrar_bi_descuento_venta
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_descuento')
+	DROP PROCEDURE sp_migrar_fact_descuento
 GO
 
 --no se me ocurre como migrarlo que no sea otra manera que haciendo un cursor por cada venta que se agrega en fact_venta y agregando todos los descuentos
 --de esa venta a la tabla esta
-CREATE PROCEDURE sp_migrar_bi_descuento_venta
+CREATE PROCEDURE sp_migrar_fact_descuento
 AS
 BEGIN
-	PRINT 'Migracion de BI descuento de venta'
+	PRINT 'Migracion de BI descuento'
     INSERT INTO INFORMADOS.BI_descuento_venta(id_descuento_venta, id_tipo_descuento_venta, id_venta, importe_descuento)
 	SELECT * FROM INFORMADOS.descuento_venta
 END
@@ -442,8 +444,8 @@ BEGIN TRY
 	EXECUTE sp_migrar_bi_proveedor
 	EXECUTE sp_migrar_fact_compra
 	EXECUTE sp_migrar_fact_envio
-	EXECUTE sp_migrar_bi_fact_venta
-	EXECUTE sp_migrar_bi_descuento_venta
+	EXECUTE sp_migrar_fact_venta
+--	EXECUTE sp_migrar_fact_descuento
 END TRY
 BEGIN CATCH
      ROLLBACK TRANSACTION;
@@ -458,13 +460,14 @@ END CATCH
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_provincia)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tiempo)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tipo_descuento)
-	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_descuento)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_proveedor)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_tipo_envio)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_venta)
     AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_compra)
 	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_envio)
+--	AND EXISTS (SELECT 1 FROM INFORMADOS.BI_fact_descuento)
 	)
+
    BEGIN
 	PRINT 'Tablas migradas correctamente.';
 	COMMIT TRANSACTION;
@@ -472,6 +475,6 @@ END CATCH
 	 ELSE
    BEGIN
     ROLLBACK TRANSACTION;
-	THROW 50002, 'Se encontraron errores al migrar las tablas. Ne se migraron datos.',1;
+	THROW 50002, 'Se encontraron errores al migrar las tablas. No se migraron datos.',1;
    END
 GO
