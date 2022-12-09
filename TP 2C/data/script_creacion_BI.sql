@@ -83,15 +83,17 @@ nombre_canal varchar(255),
 costo_canal decimal(18,2)
 );
 
+
 CREATE TABLE INFORMADOS.BI_tipo_descuento(
-id_tipo_descuento int PRIMARY KEY,
-concepto_descuento nvarchar(255)
+id_descuento int IDENTITY(1, 1) PRIMARY KEY,
+tipo_descuento nvarchar(255)
 );
 
 CREATE TABLE INFORMADOS.BI_medio_pago_venta(
 id_medio_pago_venta int PRIMARY KEY,
 nombre_medio_pago varchar(255),
-costo_medio_pago decimal(18,2)
+costo_medio_pago decimal(18,2),
+porcentaje_descuento decimal(18,2)
 );
 
 CREATE TABLE INFORMADOS.BI_tipo_envio(
@@ -111,6 +113,8 @@ domicilio nvarchar(255),
 mail nvarchar(255)
 );
 
+
+
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas de hechos para el armado de las vistas --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -126,7 +130,6 @@ PRIMARY KEY (id_tiempo, id_producto, id_proveedor)
 );
 
 CREATE TABLE INFORMADOS.BI_fact_envio (
-id_fact_envio int IDENTITY(1,1) PRIMARY KEY,
 id_envio int,
 id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
 id_provincia int REFERENCES INFORMADOS.BI_provincia(id_provincia),
@@ -147,13 +150,16 @@ cantidad_productos int,
 cantidad_ventas int
 );
 
+/*
 CREATE TABLE INFORMADOS.BI_fact_descuento(
-id_descuento int PRIMARY KEY, --podria no existir y usar el idventa y tipo descuento
-id_venta int REFERENCES INFORMADOS.BI_fact_venta(id_venta),
+id_descuento int PRIMARY KEY, 
+id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
 id_tipo_descuento_venta int REFERENCES INFORMADOS.BI_tipo_descuento(id_tipo_descuento),
+id_medio_pago_venta int REFERENCES INFORMADOS.BI_medio_pago_venta(id_medio_pago_venta),
 importe_descuento decimal(18,2)
 );
 
+*/
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de funciones --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -287,8 +293,14 @@ CREATE PROCEDURE sp_migrar_bi_tipo_descuento
 AS
 BEGIN
 	PRINT 'Migracion de BI tipos de descuento'
-    INSERT INTO INFORMADOS.BI_tipo_descuento(id_tipo_descuento, concepto_descuento)
-	SELECT * FROM INFORMADOS.tipo_descuento_venta
+	INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) values ('ENVIO GRATIS')
+	INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) 
+	(SELECT mpv.nombre
+	 FROM INFORMADOS.medio_pago_venta mpv
+	 WHERE mpv.porcentaje_descuento IS NOT NULL)
+	INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) values ('CUPON')
+    INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) values ('ESPECIAL')
+
 END
 GO
 
@@ -405,6 +417,7 @@ BEGIN
 END
 GO
 
+/*
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_descuento')
 	DROP PROCEDURE sp_migrar_fact_descuento
 GO
@@ -415,14 +428,42 @@ CREATE PROCEDURE sp_migrar_fact_descuento
 AS
 BEGIN
 	PRINT 'Migracion de BI descuento'
-    INSERT INTO INFORMADOS.BI_descuento_venta(id_descuento_venta, id_tipo_descuento_venta, id_venta, importe_descuento)
-	SELECT * FROM INFORMADOS.descuento_venta
+    INSERT INTO INFORMADOS.BI_fact_descuento(id_descuento_venta, id_tipo_descuento_venta, id_venta, importe_descuento)
+	SELECT DISTINCT dv.id_descuento_venta
+	FROM INFORMADOS.descuento_venta dv
 END
-GO
 
+AS
+BEGIN
+	PRINT 'Migracion de BI Hechos Envio'
+    INSERT INTO INFORMADOS.BI_fact_envio(id_envio,id_tiempo, id_provincia, id_tipo_envio, cantidad_envios, costo_total) 
+    SELECT DISTINCT v.id_envio, INFORMADOS.get_tiempo(v.fecha), z.id_provincia, e.id_metodo_envio, COUNT(*), SUM(e.precio)
+    FROM INFORMADOS.venta v
+	INNER JOIN INFORMADOS.envio e ON v.id_envio = e.id_envio
+	INNER JOIN INFORMADOS.zona z ON e.id_zona = z.id_zona
+    GROUP BY v.id_envio, INFORMADOS.get_tiempo(v.fecha), z.id_provincia, e.id_metodo_envio
+END
+
+GO
+*/
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREACION DE VISTAS --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--VISTA 4: Total de Ingresos por cada medio de pago por mes, descontando los costos
+--por medio de pago (en caso que aplique) y descuentos por medio de pago
+--(en caso que aplique).
+
+
+
+--VISTA 5: Importe total en descuentos aplicados según su tipo de descuento, por
+--canal de venta, por mes. Se entiende por tipo de descuento como los
+--correspondientes a envío, medio de pago, cupones, etc). 
+
+
+
+
+
 -- VISTA 7: Valor promedio de envío por Provincia por Medio De Envío anual.
 -- columnas: provincia, medio_envio, año, valor
 

@@ -146,7 +146,8 @@ costo decimal(18,2)
 CREATE TABLE INFORMADOS.medio_pago_venta(
 id_medio_pago_venta int IDENTITY(1,1) PRIMARY KEY,
 nombre nvarchar(255),
-costo decimal(18,2)
+costo decimal(18,2),
+porcentaje_descuento decimal(18,2)
 );
 
 CREATE TABLE INFORMADOS.venta(
@@ -441,8 +442,8 @@ CREATE PROCEDURE sp_migrar_medio_pago_venta
 AS
 BEGIN
 	PRINT 'Migracion de medios de pago para ventas'
-	INSERT INTO INFORMADOS.medio_pago_venta(nombre, costo)
-	SELECT DISTINCT VENTA_MEDIO_PAGO, VENTA_MEDIO_PAGO_COSTO
+	INSERT INTO INFORMADOS.medio_pago_venta(nombre, costo, porcentaje_descuento)
+	SELECT DISTINCT VENTA_MEDIO_PAGO, VENTA_MEDIO_PAGO_COSTO, NULL
 	FROM gd_esquema.Maestra
 	WHERE VENTA_MEDIO_PAGO IS NOT NULL AND VENTA_MEDIO_PAGO_COSTO IS NOT NULL
 	GROUP BY VENTA_MEDIO_PAGO, VENTA_MEDIO_PAGO_COSTO
