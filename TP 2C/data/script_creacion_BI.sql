@@ -605,7 +605,28 @@ AS
     GROUP BY t.año, t.mes, cv.nombre_canal
 GO
 
+-- VISTA 6: Porcentaje de envíos realizados a cada Provincia por mes.
+-- El porcentaje debe representar la cantidad de envíos realizados a cada provincia sobre 
+-- total de envío mensuales.
+-- columnas: provincia, año, mes, porcentaje
 
+CREATE VIEW vw_envios_a_provincia_por_mes
+AS
+	select pr.nombre, ti.mes,
+		ROUND(CAST(COUNT(te.nombre) AS FLOAT) / (
+			SELECT count(te2.nombre)
+			FROM INFORMADOS.BI_fact_envio vt2
+			JOIN INFORMADOS.BI_tipo_envio te2 ON te2.id_tipo_envio = vt2.id_tipo_envio
+			WHERE te2.nombre <> 'Entrega en sucursal' AND ti.id_tiempo = vt2.id_tiempo
+		) * 100,2) AS importe
+	FROM INFORMADOS.BI_provincia pr
+	JOIN INFORMADOS.BI_fact_envio fe ON fe.id_provincia = pr.id_provincia
+	JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = fe.id_tiempo
+	JOIN INFORMADOS.BI_tipo_envio te ON te.id_tipo_envio = fe.id_tipo_envio
+	WHERE te.nombre <> 'Entrega en sucursal'
+	GROUP BY ti.mes, pr.nombre, ti.id_tiempo
+	order by importe desc
+GO
 
 -- VISTA 7: Valor promedio de envío por Provincia por Medio De Envío anual.
 -- columnas: provincia, medio_envio, año, valor
