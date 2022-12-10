@@ -1,8 +1,8 @@
 -- VISTA 1: Las ganancias mensuales de cada canal de venta.
 -- Se entiende por ganancias al total de las ventas, menos el total de las 
--- compras, menos los costos de transacción totales aplicados asociados los 
+-- compras, menos los costos de transacciÃ³n totales aplicados asociados los 
 -- medios de pagos utilizados en las mismas.
--- columnas: canal de venta, año, mes, ganancias
+-- columnas: canal de venta, aÃ±o, mes, ganancias
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_ganancia_mensual_canal')
 	DROP VIEW vw_ganancia_mensual_canal
@@ -11,23 +11,23 @@ GO
 
 CREATE VIEW vw_ganancia_mensual_canal
 AS
-SELECT  ti.año, ti.mes, cv.nombre_canal,
-	SUM(vt.precio_total_venta) - ROUND(SUM(fc.costo_total)/* / 4*/, 2) - ROUND(SUM(mp.costo_medio_pago), 2) AS ganancia
+SELECT  ti.aÃ±o, ti.mes, cv.nombre_canal,
+	SUM(vt.precio_total) - ROUND(SUM(fc.costo_total)/* / 4*/, 2) - ROUND(SUM(mp.costo_medio_pago), 2) AS ganancia
 FROM INFORMADOS.BI_tiempo ti
-LEFT JOIN INFORMADOS.BI_venta_total vt ON vt.id_tiempo = ti.id_tiempo
+LEFT JOIN INFORMADOS.BI_fact_venta vt ON vt.id_tiempo = ti.id_tiempo
 LEFT JOIN INFORMADOS.BI_canal_venta cv ON vt.id_canal_venta = cv.id_canal_venta
 LEFT JOIN INFORMADOS.BI_medio_pago_venta mp ON vt.id_medio_pago_venta = mp.id_medio_pago_venta
 LEFT JOIN INFORMADOS.BI_fact_compra fc ON fc.id_tiempo = ti.id_tiempo
-GROUP BY ti.año, ti.mes, cv.nombre_canal
+GROUP BY ti.aÃ±o, ti.mes, cv.nombre_canal
 GO
 
 -- VISTA 2: Los 5 productos con mayor rentabilidad anual, con sus respectivos %.
 -- Se entiende por rentabilidad a los ingresos generados por el producto 
--- (ventas) durante el periodo menos la inversión realizada en el producto 
+-- (ventas) durante el periodo menos la inversiÃ³n realizada en el producto 
 -- (compras) durante el periodo, todo esto sobre dichos ingresos. 
 -- Valor expresado en porcentaje. 
 -- Para simplificar, no es necesario tener en cuenta los descuentos aplicados.
--- columnas: producto, porcentaje (año?, se asume el último año?, se promedian todos los años historicos?)
+-- columnas: producto, porcentaje (aÃ±o?, se asume el Ãºltimo aÃ±o?, se promedian todos los aÃ±os historicos?)
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_mayor_rentabilidad_anual')
 	DROP VIEW vw_mayor_rentabilidad_anual
@@ -37,26 +37,26 @@ CREATE VIEW vw_mayor_rentabilidad_anual
 AS
 SELECT TOP 5
 	vp.id_producto,
-	((sum(vp.precio_total_producto)
+	((sum(vp.precio_total)
 		- (SELECT sum(fc.costo_total)
 			FROM INFORMADOS.BI_fact_compra fc
-			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+			WHERE cast(concat(ti.aÃ±o, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
 				and fc.id_producto = vp.id_producto)
-	) /	(SELECT sum(vp2.precio_total_producto) 
-		FROM INFORMADOS.BI_ventas_x_productos vp2
-		WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+	) /	(SELECT sum(vp2.precio_total) 
+		FROM INFORMADOS.BI_fact_venta vp2
+		WHERE cast(concat(ti.aÃ±o, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
 			and vp2.id_producto = vp.id_producto)
 	) * 100 AS porcentaje_rentabilidad
-FROM INFORMADOS.BI_ventas_x_productos vp
+FROM INFORMADOS.BI_fact_venta vp
 LEFT JOIN INFORMADOS.BI_tiempo ti
-ON vp.id_venta = ti.id_tiempo
-WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-GROUP BY vp.id_producto, ti.año, ti.mes
+ON vp.id_tiempo = ti.id_tiempo
+WHERE cast(concat(ti.aÃ±o, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+GROUP BY vp.id_producto, ti.aÃ±o, ti.mes
 ORDER BY porcentaje_rentabilidad desc
 GO
 
--- VISTA 3: Las 5 categorías de productos más vendidos por rango etario de clientes por mes. 
--- columnas: rango_etareo, año, mes, categoria_nombre
+-- VISTA 3: Las 5 categorÃ­as de productos mÃ¡s vendidos por rango etario de clientes por mes. 
+-- columnas: rango_etareo, aÃ±o, mes, categoria_nombre
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_categorias_por_rango_etarios')
 	DROP VIEW vw_categorias_por_rango_etarios
@@ -65,21 +65,19 @@ GO
 CREATE VIEW vw_categorias_por_rango_etarios
 AS
 select TOP 5 ra.rango_etario, pr.id_categoria, ti.mes
-from INFORMADOS.BI_ventas_x_productos vp
-join INFORMADOS.BI_productos pr ON pr.id_producto = vp.id_producto
-join INFORMADOS.BI_venta_total vt ON vt.id_venta = vp.id_venta
-join INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vt.id_tiempo
-join INFORMADOS.BI_clientes cl ON cl.id_cliente = vt.id_cliente
-join INFORMADOS.BI_rango_etario ra ON ra.id_rango_etario = cl.id_rango_etario
+from INFORMADOS.BI_fact_venta vp
+join INFORMADOS.BI_producto pr ON pr.id_producto = vp.id_producto
+join INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vp.id_tiempo
+join INFORMADOS.BI_rango_etario ra ON ra.id_rango_etario = vp.id_rango_etario
 join INFORMADOS.BI_categoria_producto ca ON ca.id_categoria = pr.id_categoria
 group by pr.id_categoria, ti.mes, ra.rango_etario
-order by sum(vp.cantidad) DESC
+order by sum(vp.cantidad_productos) DESC
 GO
 
 -- VISTA 4:  Total de Ingresos por cada medio de pago por mes, descontando los costos 
 -- por medio de pago (en caso que aplique) y descuentos por medio de pago 
 -- (en caso que aplique)
--- columnas: medio_pago, año, mes, ingresos
+-- columnas: medio_pago, aÃ±o, mes, ingresos
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_ingresos_x_medio_pago')
 	DROP VIEW vw_ingresos_x_medio_pago
@@ -100,10 +98,10 @@ GROUP BY mp.nombre_medio_pago, ti.mes, td.concepto_descuento, dv.importe_descuen
 GO
 
 
--- VISTA 5: Importe total en descuentos aplicados según su tipo de descuento, por canal de venta, por mes.
+-- VISTA 5: Importe total en descuentos aplicados segÃºn su tipo de descuento, por canal de venta, por mes.
 -- Se entiende por tipo de descuento como los 
--- correspondientes a envío, medio de pago, cupones, etc)
--- columnas: tipo_descuento, canal_de_venta, año, mes, importe
+-- correspondientes a envÃ­o, medio de pago, cupones, etc)
+-- columnas: tipo_descuento, canal_de_venta, aÃ±o, mes, importe
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_descuentos_aplicados_por_tipo')
 	DROP VIEW vw_descuentos_aplicados_por_tipo
@@ -120,10 +118,10 @@ JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vt.id_tiempo
 GROUP BY ti.mes, tp.concepto_descuento, ca.nombre_canal
 GO
 
--- VISTA 6: Porcentaje de envíos realizados a cada Provincia por mes.
--- El porcentaje debe representar la cantidad de envíos realizados a cada provincia sobre 
--- total de envío mensuales.
--- columnas: provincia, año, mes, porcentaje
+-- VISTA 6: Porcentaje de envÃ­os realizados a cada Provincia por mes.
+-- El porcentaje debe representar la cantidad de envÃ­os realizados a cada provincia sobre 
+-- total de envÃ­o mensuales.
+-- columnas: provincia, aÃ±o, mes, porcentaje
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_envios_a_provincia_por_mes')
 	DROP VIEW vw_envios_a_provincia_por_mes
@@ -147,8 +145,8 @@ WHERE te.nombre <> 'Entrega en sucursal'
 GROUP BY ti.mes, pr.nombre, te.nombre, ti.id_tiempo
 GO
 
--- VISTA 7: Valor promedio de envío por Provincia por Medio De Envío anual.
--- columnas: provincia, medio_envio, año, valor
+-- VISTA 7: Valor promedio de envÃ­o por Provincia por Medio De EnvÃ­o anual.
+-- columnas: provincia, medio_envio, aÃ±o, valor
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_valor_promedio_envio_x_provincia_x_medio_envio_anual')
 	DROP VIEW INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
@@ -157,7 +155,7 @@ GO
 CREATE VIEW INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
 AS
     SELECT 
-	t.año AS [Año],
+	t.aÃ±o AS [AÃ±o],
 	p.nombre AS [Provincia],
 	te.nombre AS [Tipo de envio],
 	AVG(he.total_envios) as [Promedio Envios]
@@ -168,14 +166,14 @@ AS
     ON he.id_provincia = p.id_provincia
     INNER JOIN INFORMADOS.BI_tipo_envio te
     ON he.id_tipo_envio = te.id_tipo_envio
-    GROUP BY t.año, p.nombre, te.nombre
+    GROUP BY t.aÃ±o, p.nombre, te.nombre
 
 GO
 
 
 -- VISTA 8: Aumento promedio de precios de cada proveedor anual. Para calcular este
--- indicador se debe tomar como referencia el máximo precio por año menos
--- el mínimo todo esto divido el mínimo precio del año. Teniendo en cuenta
+-- indicador se debe tomar como referencia el mÃ¡ximo precio por aÃ±o menos
+-- el mÃ­nimo todo esto divido el mÃ­nimo precio del aÃ±o. Teniendo en cuenta
 -- que los precios siempre van en aumento.
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_aumento_promedio_precios_x_proveedor_anual')
@@ -185,18 +183,18 @@ GO
 CREATE VIEW INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
 AS
 
-	SELECT t.año as [Año],
+	SELECT t.aÃ±o as [AÃ±o],
 	       hc.id_proveedor AS [Proveedor],
 		   hc.id_producto AS [Producto],
-		   AVG(INFORMADOS.get_aumento(t.año, hc.id_proveedor, hc.id_producto)) AS [Aumento promedio en precios]
+		   AVG(INFORMADOS.get_aumento(t.aÃ±o, hc.id_proveedor, hc.id_producto)) AS [Aumento promedio en precios]
     FROM INFORMADOS.BI_fact_compra hc
 	INNER JOIN INFORMADOS.BI_tiempo t
 	ON hc.id_tiempo = t.id_tiempo
-    GROUP BY t.año, hc.id_proveedor, hc.id_producto
+    GROUP BY t.aÃ±o, hc.id_proveedor, hc.id_producto
 GO
 
--- VISTA 9: Los 3 productos con mayor cantidad de reposición por mes.
--- columnas: año, mes, codigo_prod1, nombre_prod2, codigo_prod2, nombre_prod2, codigo_prod3, nombre_prod3
+-- VISTA 9: Los 3 productos con mayor cantidad de reposiciÃ³n por mes.
+-- columnas: aÃ±o, mes, codigo_prod1, nombre_prod2, codigo_prod2, nombre_prod2, codigo_prod3, nombre_prod3
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_tres_productos_mayor_cantidad_reposicion_x_mes')
 	DROP VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
@@ -205,7 +203,7 @@ GO
 CREATE VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes AS
 
 	SELECT
-	 dt.año as [Año],
+	 dt.aÃ±o as [AÃ±o],
 	 dt.mes as [Mes],
 	 hc.id_producto as [Producto]
 	from INFORMADOS.BI_tiempo dt
@@ -216,5 +214,5 @@ CREATE VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes AS
 		WHERE id_tiempo = dt.id_tiempo
 		GROUP BY id_producto
 		ORDER BY SUM(cantidad) DESC)
-	GROUP BY dt.año, dt.mes, hc.id_producto
+	GROUP BY dt.aÃ±o, dt.mes, hc.id_producto
 GO
