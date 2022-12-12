@@ -193,22 +193,6 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_aumento_proveedor')
-	DROP FUNCTION INFORMADOS.get_aumento_proveedor
-GO
-
-CREATE FUNCTION INFORMADOS.get_aumento_proveedor(@tiempo int, @proveedor nvarchar(50))
-RETURNS DECIMAL
-AS
-BEGIN
-	RETURN (SELECT (MAX(hc.precio_unidad) - MIN(hc.precio_unidad)) / MIN(hc.precio_unidad) * 100 / COUNT(p.id_producto)
-	FROM INFORMADOS.BI_fact_compra hc
-	INNER JOIN INFORMADOS.BI_producto p ON p.id_producto = hc.id_producto
-	WHERE hc.id_proveedor = @proveedor and hc.id_tiempo = @tiempo
-	GROUP BY hc.id_proveedor, hc.id_tiempo)
-END
-GO
-
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de procedimientos tablas dimensionales--
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
