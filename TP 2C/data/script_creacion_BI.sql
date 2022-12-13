@@ -564,18 +564,6 @@ AS
 	FROM INFORMADOS.BI_fact_venta vp
 	LEFT JOIN INFORMADOS.BI_tiempo ti ON vp.id_tiempo = ti.id_tiempo
 	WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-	GROUP BY vp.id_producto, ti.año, ti.mes;
-	SELECT TOP 5 vp.id_producto [Codigo Producto],
-		((sum(vp.precio_total)
-			- (SELECT sum(fc.costo_total)
-				FROM INFORMADOS.BI_fact_compra fc
-				WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-					and fc.id_producto = vp.id_producto)
-		) /	sum(vp.precio_total)
-		) * 100 [Porcentaje Rentabilidad]
-	FROM INFORMADOS.BI_fact_venta vp
-	LEFT JOIN INFORMADOS.BI_tiempo ti ON vp.id_tiempo = ti.id_tiempo
-	WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
 	GROUP BY vp.id_producto, ti.año, ti.mes
 GO
 
@@ -750,10 +738,6 @@ BEGIN TRY
 	EXECUTE sp_migrar_fact_envio
 	EXECUTE sp_migrar_fact_venta
 	EXECUTE sp_migrar_fact_descuento
-	
-	select * from INFORMADOS.producto_por_venta
-	select * from INFORMADOS.BI_fact_venta
-
 END TRY
 BEGIN CATCH
      ROLLBACK TRANSACTION;
