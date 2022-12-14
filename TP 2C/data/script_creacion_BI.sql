@@ -1,5 +1,85 @@
 USE GD2C2022
 
+IF EXISTS (SELECT 1 FROM SYS.OBJECTS WHERE schema_id = SCHEMA_ID('INFORMADOS'))
+BEGIN
+	DECLARE @DATABASE_NAME NCHAR = 'INFORMADOS'
+
+	--------------------------------------  E L I M I N A R   FUNCTIONS  --------------------------------------
+	DECLARE @SQL_FN NVARCHAR(MAX) = N'';
+
+	SELECT @SQL_FN += N'
+	DROP FUNCTION ' + @DATABASE_NAME + '.' + name  + ';' 
+	FROM sys.objects WHERE type = 'FN' 
+	AND schema_id = SCHEMA_ID(@DATABASE_NAME)
+
+	PRINT @SQL_FN
+	EXECUTE(@SQL_FN)
+
+--------------------------------------  E L I M I N A R   S P  --------------------------------------
+	DECLARE @SQL_SP NVARCHAR(MAX) = N'';
+
+	SELECT @SQL_SP += N'
+	DROP PROCEDURE ' + @DATABASE_NAME + '.' + name  + ';' 
+	FROM sys.objects WHERE type = 'P' 
+	AND schema_id = SCHEMA_ID(@DATABASE_NAME)
+
+	EXECUTE(@SQL_SP)
+
+	--------------------------------------  E L I M I N A R   F K  --------------------------------------
+	DECLARE @SQL_FK NVARCHAR(MAX) = N'';
+	
+	SELECT @SQL_FK += N'
+	ALTER TABLE ' + @DATABASE_NAME + '.' + OBJECT_NAME(PARENT_OBJECT_ID) + ' DROP CONSTRAINT ' + OBJECT_NAME(OBJECT_ID) + ';' 
+	FROM SYS.OBJECTS
+	WHERE TYPE_DESC LIKE '%CONSTRAINT'
+	AND type = 'F'
+	AND schema_id = SCHEMA_ID(@DATABASE_NAME)
+	
+	--PRINT @SQL_FK
+	EXECUTE(@SQL_FK)
+
+	--------------------------------------  E L I M I N A R   P K  --------------------------------------
+	DECLARE @SQL_PK NVARCHAR(MAX) = N'';
+	
+	SELECT @SQL_PK += N'
+	ALTER TABLE ' + @DATABASE_NAME + '.' + OBJECT_NAME(PARENT_OBJECT_ID) + ' DROP CONSTRAINT ' + OBJECT_NAME(OBJECT_ID) + ';' 
+	FROM SYS.OBJECTS
+	WHERE TYPE_DESC LIKE '%CONSTRAINT'
+	AND type = 'PK'
+	AND schema_id = SCHEMA_ID(@DATABASE_NAME)
+	
+	--PRINT @SQL_PK
+	EXECUTE(@SQL_PK)
+
+	------------------------------------  D R O P    T A B L E S   -----------------------------------
+	DECLARE @SQL_DROP NVARCHAR(MAX) = N'';
+
+	SELECT @SQL_DROP += N'
+	DROP TABLE ' + @DATABASE_NAME + '.' + TABLE_NAME + ';' 
+	FROM INFORMATION_SCHEMA.TABLES
+	WHERE TABLE_SCHEMA = @DATABASE_NAME
+	AND TABLE_TYPE = 'BASE TABLE'
+	AND TABLE_NAME LIKE 'BI[_]%'
+
+	--PRINT @SQL_DROP
+	EXECUTE(@SQL_DROP)
+
+	----------------------------------------- D R O P   V I E W  -------------------------------------
+	DECLARE @SQL_VIEW NVARCHAR(MAX) = N'';
+
+	SELECT @SQL_VIEW += N'
+	DROP VIEW ' + @DATABASE_NAME + '.' + TABLE_NAME + ';' 
+	FROM INFORMATION_SCHEMA.TABLES
+	WHERE TABLE_SCHEMA = @DATABASE_NAME
+	AND TABLE_TYPE = 'VIEW'
+	AND TABLE_NAME LIKE 'BI[_]%'
+
+	--PRINT @SQL_VIEW
+	EXECUTE(@SQL_VIEW)
+
+END
+GO
+
 --Dropeo tablas de hechos
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_descuento')
@@ -108,17 +188,17 @@ nombre nvarchar(255)
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 CREATE TABLE INFORMADOS.BI_fact_compra(
+id_compra int IDENTITY(1,1) PRIMARY KEY,
 id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
 id_producto nvarchar(50) REFERENCES INFORMADOS.BI_producto(id_producto),
 id_proveedor nvarchar(50),
 cantidad int,
 precio_unidad decimal(18, 2),
-costo_total decimal(18, 2),
-PRIMARY KEY (id_tiempo, id_producto, id_proveedor)
+costo_total decimal(18, 2)
 );
 
 CREATE TABLE INFORMADOS.BI_fact_envio (
-id_envio int,
+id_envio int IDENTITY(1,1) PRIMARY KEY,
 id_tiempo int REFERENCES INFORMADOS.BI_tiempo(id_tiempo),
 id_provincia int REFERENCES INFORMADOS.BI_provincia(id_provincia),
 id_tipo_envio int REFERENCES INFORMADOS.BI_tipo_envio,
@@ -285,10 +365,8 @@ BEGIN
 			WHERE mpv.porcentaje_descuento IS NOT NULL)
 	INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) values ('CUPON')
     INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) values ('ESPECIAL')
-
 END
 GO
-
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_medio_pago_venta')
 	DROP PROCEDURE sp_migrar_bi_medio_pago_venta
@@ -330,7 +408,7 @@ END
 GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
--- Creacion de procedimientos tablas de hechos--
+-- Creacion de procedimientos tablas de hechos --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_compra')
@@ -358,8 +436,8 @@ CREATE PROCEDURE sp_migrar_fact_envio
 AS
 BEGIN
 	PRINT 'Migracion de BI Hechos Envio'
-    INSERT INTO INFORMADOS.BI_fact_envio(id_envio,id_tiempo, id_provincia, id_tipo_envio, cantidad_envios, costo_total) 
-    SELECT DISTINCT v.id_envio, INFORMADOS.get_tiempo(v.fecha), z.id_provincia, e.id_metodo_envio, COUNT(*), SUM(e.precio)
+    INSERT INTO INFORMADOS.BI_fact_envio(id_tiempo, id_provincia, id_tipo_envio, cantidad_envios, costo_total) 
+    SELECT DISTINCT INFORMADOS.get_tiempo(v.fecha), z.id_provincia, e.id_metodo_envio, COUNT(*), SUM(e.precio)
     FROM INFORMADOS.venta v
 	INNER JOIN INFORMADOS.envio e ON v.id_envio = e.id_envio
 	INNER JOIN INFORMADOS.zona z ON e.id_zona = z.id_zona
@@ -387,7 +465,6 @@ BEGIN
 	GROUP BY ve.id_canal, ve.id_medio_pago_venta, INFORMADOS.get_tiempo(ve.fecha), INFORMADOS.get_rango_etario(c.fecha_nacimiento), vp.id_producto
 END
 GO
-
 
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_descuento')
 	DROP PROCEDURE sp_migrar_fact_descuento
@@ -447,17 +524,15 @@ IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_ganancia_mensual_canal
 	DROP VIEW INFORMADOS.vw_ganancia_mensual_canal
 GO
 
-
 CREATE VIEW INFORMADOS.vw_ganancia_mensual_canal
 AS
-	SELECT  ti.año, ti.mes, cv.nombre_canal,
-		SUM(vt.precio_total) - ROUND(SUM(fc.costo_total)/* / 4*/, 2) - ROUND(SUM(mp.costo_medio_pago), 2) AS ganancia
+	SELECT  ti.año [Año], ti.mes [Mes], cv.nombre_canal [Canal de Venta],
+		SUM(vt.precio_total) - SUM(mp.costo_medio_pago) - (SELECT SUM(fc.costo_total) FROM INFORMADOS.BI_fact_compra fc WHERE fc.id_tiempo = ti.id_tiempo) [Ganancias]
 	FROM INFORMADOS.BI_tiempo ti
-	LEFT JOIN INFORMADOS.BI_fact_venta vt ON vt.id_tiempo = ti.id_tiempo
-	LEFT JOIN INFORMADOS.BI_canal_venta cv ON vt.id_canal_venta = cv.id_canal_venta
-	LEFT JOIN INFORMADOS.BI_medio_pago_venta mp ON vt.id_medio_pago_venta = mp.id_medio_pago_venta
-	LEFT JOIN INFORMADOS.BI_fact_compra fc ON fc.id_tiempo = ti.id_tiempo
-	GROUP BY ti.año, ti.mes, cv.nombre_canal
+	JOIN INFORMADOS.BI_fact_venta vt ON vt.id_tiempo = ti.id_tiempo
+	JOIN INFORMADOS.BI_canal_venta cv ON vt.id_canal_venta = cv.id_canal_venta
+	JOIN INFORMADOS.BI_medio_pago_venta mp ON vt.id_medio_pago_venta = mp.id_medio_pago_venta
+	GROUP BY ti.id_tiempo, ti.año, ti.mes, cv.nombre_canal
 GO
 
 -- VISTA 2: Los 5 productos con mayor rentabilidad anual, con sus respectivos %.
@@ -480,7 +555,7 @@ AS
 				FROM INFORMADOS.BI_fact_compra fc
 				WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
 					and fc.id_producto = vp.id_producto)
-		) /	(SELECT sum(vp2.precio_total) 
+		) /	/*sum(vp.precio_total)*/(SELECT sum(vp2.precio_total) 
 			FROM INFORMADOS.BI_fact_venta vp2
 			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
 				and vp2.id_producto = vp.id_producto)
@@ -502,13 +577,15 @@ CREATE VIEW INFORMADOS.vw_categorias_por_rango_etarios
 AS
 	SELECT TOP 5 ra.rango_etario [Rango Etario],
 		ca.nombre_categoria [Categoria],
+		ti.año [Año],
 		ti.mes [Mes]
 	FROM INFORMADOS.BI_fact_venta vp
 	JOIN INFORMADOS.BI_producto pr ON pr.id_producto = vp.id_producto
 	JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vp.id_tiempo
 	JOIN INFORMADOS.BI_rango_etario ra ON ra.id_rango_etario = vp.id_rango_etario
 	JOIN INFORMADOS.BI_categoria_producto ca ON ca.id_categoria = pr.id_categoria
-	GROUP BY ca.nombre_categoria, ti.mes, ra.rango_etario
+	GROUP BY ca.nombre_categoria, ti.mes, ti.año, ra.rango_etario
+	ORDER BY sum(vp.cantidad_productos) DESC
 GO
 
 --VISTA 4: Total de Ingresos por cada medio de pago por mes, descontando los costos
@@ -524,12 +601,10 @@ AS
 	SELECT t.año [Año],
 	t.mes [Mes],
 	hv.id_medio_pago_venta [Medio Pago],
-	(SUM(precio_total)
-	- SUM(mpv.costo_medio_pago)
+	SUM(precio_total) - SUM(mpv.costo_medio_pago)
 	- (SELECT SUM(hd.importe_total_descuento)
 		FROM INFORMADOS.BI_fact_descuento hd
-		WHERE hv.id_medio_pago_venta = hd.id_medio_pago_venta and hv.id_tiempo = hd.id_tiempo)
-	) [Total de Ingresos]
+		WHERE hv.id_medio_pago_venta = hd.id_medio_pago_venta and hv.id_tiempo = hd.id_tiempo) [Total de Ingresos]
 	FROM INFORMADOS.BI_fact_venta hv
 	INNER JOIN INFORMADOS.BI_medio_pago_venta mpv ON hv.id_medio_pago_venta = mpv.id_medio_pago_venta
 	INNER JOIN INFORMADOS.BI_tiempo t ON hv.id_tiempo = t.id_tiempo
