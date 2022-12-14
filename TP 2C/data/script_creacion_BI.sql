@@ -527,13 +527,12 @@ GO
 CREATE VIEW INFORMADOS.vw_ganancia_mensual_canal
 AS
 	SELECT  ti.año [Año], ti.mes [Mes], cv.nombre_canal [Canal de Venta],
-		SUM(vt.precio_total) - SUM(fc.costo_total) - SUM(mp.costo_medio_pago) [Ganancias]
+		SUM(vt.precio_total) - SUM(mp.costo_medio_pago) - (SELECT SUM(fc.costo_total) FROM INFORMADOS.BI_fact_compra fc WHERE fc.id_tiempo = ti.id_tiempo) [Ganancias]
 	FROM INFORMADOS.BI_tiempo ti
-	LEFT JOIN INFORMADOS.BI_fact_venta vt ON vt.id_tiempo = ti.id_tiempo
-	LEFT JOIN INFORMADOS.BI_canal_venta cv ON vt.id_canal_venta = cv.id_canal_venta
-	LEFT JOIN INFORMADOS.BI_medio_pago_venta mp ON vt.id_medio_pago_venta = mp.id_medio_pago_venta
-	LEFT JOIN INFORMADOS.BI_fact_compra fc ON fc.id_tiempo = ti.id_tiempo AND fc.id_producto = vt.id_producto
-	GROUP BY ti.año, ti.mes, cv.nombre_canal
+	JOIN INFORMADOS.BI_fact_venta vt ON vt.id_tiempo = ti.id_tiempo
+	JOIN INFORMADOS.BI_canal_venta cv ON vt.id_canal_venta = cv.id_canal_venta
+	JOIN INFORMADOS.BI_medio_pago_venta mp ON vt.id_medio_pago_venta = mp.id_medio_pago_venta
+	GROUP BY ti.id_tiempo, ti.año, ti.mes, cv.nombre_canal
 GO
 
 -- VISTA 2: Los 5 productos con mayor rentabilidad anual, con sus respectivos %.
