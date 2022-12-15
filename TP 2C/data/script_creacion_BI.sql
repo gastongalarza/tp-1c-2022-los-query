@@ -550,20 +550,13 @@ GO
 CREATE VIEW INFORMADOS.vw_mayor_rentabilidad_anual
 AS
 	SELECT TOP 5 vp.id_producto [Codigo Producto],
-		((sum(vp.precio_total)
-			- (SELECT sum(fc.costo_total)
-				FROM INFORMADOS.BI_fact_compra fc
-				WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-					and fc.id_producto = vp.id_producto)
-		) /	/*sum(vp.precio_total)*/(SELECT sum(vp2.precio_total) 
-			FROM INFORMADOS.BI_fact_venta vp2
-			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-				and vp2.id_producto = vp.id_producto)
-		) * 100 [Porcentaje Rentabilidad]
+		(1 - sum(fc.costo_total) / sum(vp.precio_total)) * 100 [Porcentaje Rentabilidad]
 	FROM INFORMADOS.BI_fact_venta vp
 	LEFT JOIN INFORMADOS.BI_tiempo ti ON vp.id_tiempo = ti.id_tiempo
+	LEFT JOIN INFORMADOS.BI_fact_compra fc ON fc.id_producto = vp.id_producto AND fc.id_tiempo = ti.id_tiempo
 	WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-	GROUP BY vp.id_producto, ti.año, ti.mes
+	GROUP BY vp.id_producto
+	ORDER BY [Porcentaje Rentabilidad] DESC
 GO
 
 -- VISTA 3: Las 5 categorías de productos más vendidos por rango etario de clientes por mes. 
@@ -575,17 +568,16 @@ GO
 
 CREATE VIEW INFORMADOS.vw_categorias_por_rango_etarios
 AS
-	SELECT TOP 5 ra.rango_etario [Rango Etario],
-		ca.nombre_categoria [Categoria],
-		ti.año [Año],
-		ti.mes [Mes]
-	FROM INFORMADOS.BI_fact_venta vp
-	JOIN INFORMADOS.BI_producto pr ON pr.id_producto = vp.id_producto
-	JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vp.id_tiempo
-	JOIN INFORMADOS.BI_rango_etario ra ON ra.id_rango_etario = vp.id_rango_etario
-	JOIN INFORMADOS.BI_categoria_producto ca ON ca.id_categoria = pr.id_categoria
-	GROUP BY ca.nombre_categoria, ti.mes, ti.año, ra.rango_etario
-	ORDER BY sum(vp.cantidad_productos) DESC
+	SELECT ra.rango_etario [Rango Etario], ti.año [Año], ti.mes [Mes], ca.nombre_categoria [Categoria]
+	FROM INFORMADOS.BI_tiempo ti CROSS JOIN INFORMADOS.BI_rango_etario ra
+	LEFT JOIN INFORMADOS.BI_fact_venta vp ON ra.id_rango_etario = vp.id_rango_etario AND ti.id_tiempo = vp.id_tiempo
+	LEFt JOIN INFORMADOS.BI_producto pr ON pr.id_producto = vp.id_producto
+	LEFT JOIN INFORMADOS.BI_categoria_producto ca ON ca.id_categoria = pr.id_categoria
+	GROUP BY ti.mes, ti.año, ra.rango_etario, ca.nombre_categoria
+	HAVING (ca.nombre_categoria) IN 
+		(SELECT TOP 5 ca.nombre_categoria
+		FROM INFORMADOS.BI_fact_venta fact
+		ORDER BY sum(vp.cantidad_productos) DESC)
 GO
 
 --VISTA 4: Total de Ingresos por cada medio de pago por mes, descontando los costos
@@ -598,9 +590,7 @@ GO
 
 CREATE VIEW INFORMADOS.vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos
 AS
-	SELECT t.año [Año],
-	t.mes [Mes],
-	hv.id_medio_pago_venta [Medio Pago],
+	SELECT t.año [Año], t.mes [Mes], hv.id_medio_pago_venta [Medio Pago],
 	SUM(precio_total) - SUM(mpv.costo_medio_pago)
 	- (SELECT SUM(hd.importe_total_descuento)
 		FROM INFORMADOS.BI_fact_descuento hd
@@ -817,4 +807,80 @@ GROUP BY ti.año, fc.id_proveedor
 
 SELECT * FROM INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
 ORDER BY Año, Proveedor
+*/
+
+SELECT TOP 5 vp.id_producto [Codigo Producto],
+	(	
+		(SELECT sum(vp2.precio_total) 
+			FROM INFORMADOS.BI_fact_venta vp2
+			JOIN INFORMADOS.BI_tiempo ti ON vp2.id_tiempo = ti.id_tiempo
+			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+				and vp2.id_producto = vp.id_producto)
+		- (SELECT sum(fc.costo_total)
+			FROM INFORMADOS.BI_fact_compra fc
+			JOIN INFORMADOS.BI_tiempo ti ON fc.id_tiempo = ti.id_tiempo
+			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+				and fc.id_producto = vp.id_producto)
+	) /	(
+		(SELECT sum(vp2.precio_total) 
+			FROM INFORMADOS.BI_fact_venta vp2
+			JOIN INFORMADOS.BI_tiempo ti ON vp2.id_tiempo = ti.id_tiempo
+			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+				and vp2.id_producto = vp.id_producto)
+	) * 100 [Porcentaje Rentabilidad]
+FROM INFORMADOS.BI_fact_venta vp
+GROUP BY vp.id_producto
+ORDER BY [Porcentaje Rentabilidad] DESC
+
+SELECT TOP 5 vp.id_producto [Codigo Producto],
+	(sum(vp.precio_total) - sum(fc.costo_total)) / sum(vp.precio_total) * 100 [Porcentaje Rentabilidad]
+FROM INFORMADOS.BI_fact_venta vp
+LEFT JOIN INFORMADOS.BI_tiempo ti ON vp.id_tiempo = ti.id_tiempo
+LEFT JOIN INFORMADOS.BI_fact_compra fc ON fc.id_producto = vp.id_producto AND fc.id_tiempo = ti.id_tiempo
+WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+GROUP BY vp.id_producto
+ORDER BY [Porcentaje Rentabilidad] DESC
+
+
+
+
+SELECT TOP 5 vp.id_producto [Codigo Producto],
+	sum(vp.precio_total), sum(fc.costo_total), sum(fc.costo_total) / sum(vp.precio_total) * 100 [Porcentaje Rentabilidad]
+FROM INFORMADOS.BI_fact_venta vp
+LEFT JOIN INFORMADOS.BI_tiempo ti ON vp.id_tiempo = ti.id_tiempo
+LEFT JOIN INFORMADOS.BI_fact_compra fc ON fc.id_producto = vp.id_producto AND fc.id_tiempo = ti.id_tiempo
+WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
+	AND vp.id_producto = 'OTTWFDT79Q50EC05B'
+GROUP BY vp.id_producto
+
+
+/*
+-- Vista 3
+SELECT ra.rango_etario [Rango Etario],
+		ti.año [Año],
+		ti.mes [Mes],
+		ca.nombre_categoria [Categoria]
+	FROM INFORMADOS.BI_fact_venta vp
+	JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vp.id_tiempo
+	JOIN INFORMADOS.BI_rango_etario ra ON ra.id_rango_etario = vp.id_rango_etario
+	JOIN INFORMADOS.BI_producto pr ON pr.id_producto = vp.id_producto
+	JOIN INFORMADOS.BI_categoria_producto ca ON ca.id_categoria = pr.id_categoria
+	WHERE (ca.nombre_categoria) IN (SELECT TOP 5 ca.nombre_categoria FROM )
+	GROUP BY ti.mes, ti.año, ra.rango_etario, ca.nombre_categoria
+	ORDER BY sum(vp.cantidad_productos) DESC
+
+	SELECT ra.rango_etario [Rango Etario],
+		ti.año [Año],
+		ti.mes [Mes],
+		ca.nombre_categoria [Categoria]
+	FROM INFORMADOS.BI_tiempo ti CROSS JOIN INFORMADOS.BI_rango_etario ra
+	LEFT JOIN INFORMADOS.BI_fact_venta vp ON ra.id_rango_etario = vp.id_rango_etario AND ti.id_tiempo = vp.id_tiempo
+	LEFt JOIN INFORMADOS.BI_producto pr ON pr.id_producto = vp.id_producto
+	LEFT JOIN INFORMADOS.BI_categoria_producto ca ON ca.id_categoria = pr.id_categoria
+	GROUP BY ti.mes, ti.año, ra.rango_etario, ca.nombre_categoria
+	HAVING (ca.nombre_categoria) IN 
+		(SELECT TOP 5 ca.nombre_categoria
+		FROM INFORMADOS.BI_fact_venta fact
+		ORDER BY sum(vp.cantidad_productos) DESC)
+	ORDER BY ra.rango_etario, ti.año, ti.mes
 */
