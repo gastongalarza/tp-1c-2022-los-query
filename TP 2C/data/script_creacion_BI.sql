@@ -359,10 +359,7 @@ AS
 BEGIN
 	PRINT 'Migracion de BI tipos de descuento'
 	INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) values ('ENVIO GRATIS')
-	INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento)
-		(SELECT mpv.nombre
-			FROM INFORMADOS.medio_pago_venta mpv
-			WHERE mpv.porcentaje_descuento IS NOT NULL)
+	INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) values ('MEDIO DE PAGO')
 	INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) values ('CUPON')
     INSERT INTO INFORMADOS.BI_tipo_descuento(tipo_descuento) values ('ESPECIAL')
 END
@@ -611,14 +608,16 @@ GO
 
 CREATE VIEW INFORMADOS.vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento
 AS
-    SELECT t.año AS [Año],
-		t.mes AS [Mes],
-		cv.nombre_canal AS [Canal de Venta],
-		SUM(hd.importe_total_descuento) AS [Importe total descuentos]
+    SELECT t.año [Año],
+		t.mes [Mes],
+		cv.nombre_canal [Canal de Venta],
+		td.tipo_descuento [Tipo descuento],
+		SUM(hd.importe_total_descuento) [Importe total descuentos]
 	FROM INFORMADOS.BI_fact_descuento hd
     INNER JOIN INFORMADOS.BI_tiempo t ON hd.id_tiempo = t.id_tiempo
 	INNER JOIN INFORMADOS.BI_canal_venta cv ON hd.id_canal = cv.id_canal_venta
-    GROUP BY t.año, t.mes, cv.nombre_canal
+	INNER JOIN INFORMADOS.BI_tipo_descuento td ON td.id_tipo_descuento = hd.id_tipo_descuento_venta
+    GROUP BY t.año, t.mes, cv.nombre_canal, td.tipo_descuento
 GO
 
 -- VISTA 6: Porcentaje de envíos realizados a cada Provincia por mes.
