@@ -636,13 +636,12 @@ AS
 			SELECT count(te2.nombre)
 			FROM INFORMADOS.BI_fact_envio vt2
 			JOIN INFORMADOS.BI_tipo_envio te2 ON te2.id_tipo_envio = vt2.id_tipo_envio
-			WHERE te2.nombre <> 'Entrega en sucursal' AND ti.id_tiempo = vt2.id_tiempo
-		) * 100,2) [Importe]
+			WHERE  ti.id_tiempo = vt2.id_tiempo
+		) * 100,2) [Porcentaje]
 	FROM INFORMADOS.BI_provincia pr
 	JOIN INFORMADOS.BI_fact_envio fe ON fe.id_provincia = pr.id_provincia
 	JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = fe.id_tiempo
 	JOIN INFORMADOS.BI_tipo_envio te ON te.id_tipo_envio = fe.id_tipo_envio
-	WHERE te.nombre <> 'Entrega en sucursal'
 	GROUP BY ti.mes, pr.nombre, ti.id_tiempo
 GO
 
@@ -776,110 +775,3 @@ END CATCH
 	THROW 50002, 'Se encontraron errores al migrar las tablas. No se migraron datos.',1;
    END
 GO
-
---1: SELECT * FROM INFORMADOS.vw_ganancia_mensual_canal
---2: SELECT * FROM INFORMADOS.vw_mayor_rentabilidad_anual
---3: SELECT * FROM INFORMADOS.vw_categorias_por_rango_etarios
---4: SELECT * FROM INFORMADOS.vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos
---5: SELECT * FROM INFORMADOS.vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento
---6: SELECT * FROM INFORMADOS.vw_envios_a_provincia_por_mes
---7: SELECT * FROM INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
---8: SELECT * FROM INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
-/*9: SELECT * FROM INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
-ORDER BY año, mes*/
-
-/*
-SELECT t.año as [Año],
-	hc.id_proveedor AS [Proveedor],
-	hc.id_producto AS [Producto],
-	AVG(INFORMADOS.get_aumento(t.año, hc.id_proveedor, hc.id_producto)) AS [Aumento promedio en precios]
-FROM INFORMADOS.BI_fact_compra hc
-INNER JOIN INFORMADOS.BI_tiempo t
-ON hc.id_tiempo = t.id_tiempo
-WHERE hc.id_proveedor = '1-17672282-2'
-GROUP BY t.año, hc.id_proveedor, hc.id_producto
-ORDER BY t.año, hc.id_proveedor
-
-select distinct ti.año, fc.id_proveedor from INFORMADOS.BI_fact_compra fc, INFORMADOS.BI_tiempo ti
-WHERE fc.id_tiempo = ti.id_tiempo
-GROUP BY ti.año, fc.id_proveedor
-
-SELECT * FROM INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
-ORDER BY Año, Proveedor
-*/
-
-SELECT TOP 5 vp.id_producto [Codigo Producto],
-	(	
-		(SELECT sum(vp2.precio_total) 
-			FROM INFORMADOS.BI_fact_venta vp2
-			JOIN INFORMADOS.BI_tiempo ti ON vp2.id_tiempo = ti.id_tiempo
-			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-				and vp2.id_producto = vp.id_producto)
-		- (SELECT sum(fc.costo_total)
-			FROM INFORMADOS.BI_fact_compra fc
-			JOIN INFORMADOS.BI_tiempo ti ON fc.id_tiempo = ti.id_tiempo
-			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-				and fc.id_producto = vp.id_producto)
-	) /	(
-		(SELECT sum(vp2.precio_total) 
-			FROM INFORMADOS.BI_fact_venta vp2
-			JOIN INFORMADOS.BI_tiempo ti ON vp2.id_tiempo = ti.id_tiempo
-			WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-				and vp2.id_producto = vp.id_producto)
-	) * 100 [Porcentaje Rentabilidad]
-FROM INFORMADOS.BI_fact_venta vp
-GROUP BY vp.id_producto
-ORDER BY [Porcentaje Rentabilidad] DESC
-
-SELECT TOP 5 vp.id_producto [Codigo Producto],
-	(sum(vp.precio_total) - sum(fc.costo_total)) / sum(vp.precio_total) * 100 [Porcentaje Rentabilidad]
-FROM INFORMADOS.BI_fact_venta vp
-LEFT JOIN INFORMADOS.BI_tiempo ti ON vp.id_tiempo = ti.id_tiempo
-LEFT JOIN INFORMADOS.BI_fact_compra fc ON fc.id_producto = vp.id_producto AND fc.id_tiempo = ti.id_tiempo
-WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-GROUP BY vp.id_producto
-ORDER BY [Porcentaje Rentabilidad] DESC
-
-
-
-
-SELECT TOP 5 vp.id_producto [Codigo Producto],
-	sum(vp.precio_total), sum(fc.costo_total), sum(fc.costo_total) / sum(vp.precio_total) * 100 [Porcentaje Rentabilidad]
-FROM INFORMADOS.BI_fact_venta vp
-LEFT JOIN INFORMADOS.BI_tiempo ti ON vp.id_tiempo = ti.id_tiempo
-LEFT JOIN INFORMADOS.BI_fact_compra fc ON fc.id_producto = vp.id_producto AND fc.id_tiempo = ti.id_tiempo
-WHERE cast(concat(ti.año, '-', ti.mes, '-', '01') as date) between Dateadd(month, -12, Getdate()) and Getdate()
-	AND vp.id_producto = 'OTTWFDT79Q50EC05B'
-GROUP BY vp.id_producto
-
-
-/*
--- Vista 3
-SELECT ra.rango_etario [Rango Etario],
-		ti.año [Año],
-		ti.mes [Mes],
-		ca.nombre_categoria [Categoria]
-	FROM INFORMADOS.BI_fact_venta vp
-	JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = vp.id_tiempo
-	JOIN INFORMADOS.BI_rango_etario ra ON ra.id_rango_etario = vp.id_rango_etario
-	JOIN INFORMADOS.BI_producto pr ON pr.id_producto = vp.id_producto
-	JOIN INFORMADOS.BI_categoria_producto ca ON ca.id_categoria = pr.id_categoria
-	WHERE (ca.nombre_categoria) IN (SELECT TOP 5 ca.nombre_categoria FROM )
-	GROUP BY ti.mes, ti.año, ra.rango_etario, ca.nombre_categoria
-	ORDER BY sum(vp.cantidad_productos) DESC
-
-	SELECT ra.rango_etario [Rango Etario],
-		ti.año [Año],
-		ti.mes [Mes],
-		ca.nombre_categoria [Categoria]
-	FROM INFORMADOS.BI_tiempo ti CROSS JOIN INFORMADOS.BI_rango_etario ra
-	LEFT JOIN INFORMADOS.BI_fact_venta vp ON ra.id_rango_etario = vp.id_rango_etario AND ti.id_tiempo = vp.id_tiempo
-	LEFt JOIN INFORMADOS.BI_producto pr ON pr.id_producto = vp.id_producto
-	LEFT JOIN INFORMADOS.BI_categoria_producto ca ON ca.id_categoria = pr.id_categoria
-	GROUP BY ti.mes, ti.año, ra.rango_etario, ca.nombre_categoria
-	HAVING (ca.nombre_categoria) IN 
-		(SELECT TOP 5 ca.nombre_categoria
-		FROM INFORMADOS.BI_fact_venta fact
-		ORDER BY sum(vp.cantidad_productos) DESC)
-	ORDER BY ra.rango_etario, ti.año, ti.mes
-*/
