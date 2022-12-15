@@ -538,7 +538,7 @@ GO
 -- (compras) durante el periodo, todo esto sobre dichos ingresos.
 -- Valor expresado en porcentaje.
 -- Para simplificar, no es necesario tener en cuenta los descuentos aplicados.
--- columnas: producto, porcentaje (año?, se asume el último año?, se promedian todos los años historicos?)
+-- columnas: producto, porcentaje
 
 IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_mayor_rentabilidad_anual')
 	DROP VIEW INFORMADOS.vw_mayor_rentabilidad_anual
