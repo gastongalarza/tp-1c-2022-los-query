@@ -705,17 +705,36 @@ GO
 
 CREATE VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
 AS
-	SELECT dt.año [Año],
-		dt.mes [Mes],
-		hc.id_producto [Producto]
-	FROM INFORMADOS.BI_tiempo dt
-	INNER JOIN INFORMADOS.BI_fact_compra hc ON hc.id_tiempo = dt.id_tiempo
-	WHERE hc.id_producto IN 
-		(SELECT TOP 3 id_producto FROM INFORMADOS.BI_fact_compra
-			WHERE id_tiempo = dt.id_tiempo
-			GROUP BY id_producto
-			ORDER BY SUM(cantidad) DESC)
-	GROUP BY dt.año, dt.mes, hc.id_producto
+	SELECT distinct dt.año [Año],
+	dt.mes [Mes]
+	,	(
+		SELECT  hc1.id_producto 
+		FROM INFORMADOS.BI_fact_compra hc1
+		WHERE hc1.id_tiempo = dt.id_tiempo
+		GROUP BY hc1.id_producto
+		ORDER BY SUM(hc1.cantidad) DESC
+		OFFSET 0 ROWS 
+		FETCH NEXT 1 ROWS ONLY 
+	) AS id_producto_1
+	,	(
+		SELECT  hc2.id_producto
+		FROM INFORMADOS.BI_fact_compra hc2
+		WHERE hc2.id_tiempo = dt.id_tiempo
+		GROUP BY hc2.id_producto
+		ORDER BY SUM(hc2.cantidad) DESC
+		OFFSET 1 ROWS  
+		FETCH NEXT 1 ROWS ONLY 
+	) AS id_producto_2
+	,	(
+		SELECT hc3.id_producto 
+		FROM INFORMADOS.BI_fact_compra hc3
+		WHERE hc3.id_tiempo = dt.id_tiempo
+		GROUP BY hc3.id_producto
+		ORDER BY SUM(hc3.cantidad) DESC
+		OFFSET 2 ROWS 
+		FETCH NEXT 1 ROWS ONLY 
+	) AS id_producto_3
+FROM INFORMADOS.BI_tiempo dt
 GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
