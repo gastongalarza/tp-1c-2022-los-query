@@ -1,85 +1,5 @@
 USE GD2C2022
 
-IF EXISTS (SELECT 1 FROM SYS.OBJECTS WHERE schema_id = SCHEMA_ID('INFORMADOS'))
-BEGIN
-	DECLARE @DATABASE_NAME NCHAR = 'INFORMADOS'
-
-	--------------------------------------  E L I M I N A R   FUNCTIONS  --------------------------------------
-	DECLARE @SQL_FN NVARCHAR(MAX) = N'';
-
-	SELECT @SQL_FN += N'
-	DROP FUNCTION ' + @DATABASE_NAME + '.' + name  + ';' 
-	FROM sys.objects WHERE type = 'FN' 
-	AND schema_id = SCHEMA_ID(@DATABASE_NAME)
-
-	PRINT @SQL_FN
-	EXECUTE(@SQL_FN)
-
---------------------------------------  E L I M I N A R   S P  --------------------------------------
-	DECLARE @SQL_SP NVARCHAR(MAX) = N'';
-
-	SELECT @SQL_SP += N'
-	DROP PROCEDURE ' + @DATABASE_NAME + '.' + name  + ';' 
-	FROM sys.objects WHERE type = 'P' 
-	AND schema_id = SCHEMA_ID(@DATABASE_NAME)
-
-	EXECUTE(@SQL_SP)
-
-	--------------------------------------  E L I M I N A R   F K  --------------------------------------
-	DECLARE @SQL_FK NVARCHAR(MAX) = N'';
-	
-	SELECT @SQL_FK += N'
-	ALTER TABLE ' + @DATABASE_NAME + '.' + OBJECT_NAME(PARENT_OBJECT_ID) + ' DROP CONSTRAINT ' + OBJECT_NAME(OBJECT_ID) + ';' 
-	FROM SYS.OBJECTS
-	WHERE TYPE_DESC LIKE '%CONSTRAINT'
-	AND type = 'F'
-	AND schema_id = SCHEMA_ID(@DATABASE_NAME)
-	
-	--PRINT @SQL_FK
-	EXECUTE(@SQL_FK)
-
-	--------------------------------------  E L I M I N A R   P K  --------------------------------------
-	DECLARE @SQL_PK NVARCHAR(MAX) = N'';
-	
-	SELECT @SQL_PK += N'
-	ALTER TABLE ' + @DATABASE_NAME + '.' + OBJECT_NAME(PARENT_OBJECT_ID) + ' DROP CONSTRAINT ' + OBJECT_NAME(OBJECT_ID) + ';' 
-	FROM SYS.OBJECTS
-	WHERE TYPE_DESC LIKE '%CONSTRAINT'
-	AND type = 'PK'
-	AND schema_id = SCHEMA_ID(@DATABASE_NAME)
-	
-	--PRINT @SQL_PK
-	EXECUTE(@SQL_PK)
-
-	------------------------------------  D R O P    T A B L E S   -----------------------------------
-	DECLARE @SQL_DROP NVARCHAR(MAX) = N'';
-
-	SELECT @SQL_DROP += N'
-	DROP TABLE ' + @DATABASE_NAME + '.' + TABLE_NAME + ';' 
-	FROM INFORMATION_SCHEMA.TABLES
-	WHERE TABLE_SCHEMA = @DATABASE_NAME
-	AND TABLE_TYPE = 'BASE TABLE'
-	AND TABLE_NAME LIKE 'BI[_]%'
-
-	--PRINT @SQL_DROP
-	EXECUTE(@SQL_DROP)
-
-	----------------------------------------- D R O P   V I E W  -------------------------------------
-	DECLARE @SQL_VIEW NVARCHAR(MAX) = N'';
-
-	SELECT @SQL_VIEW += N'
-	DROP VIEW ' + @DATABASE_NAME + '.' + TABLE_NAME + ';' 
-	FROM INFORMATION_SCHEMA.TABLES
-	WHERE TABLE_SCHEMA = @DATABASE_NAME
-	AND TABLE_TYPE = 'VIEW'
-	AND TABLE_NAME LIKE 'BI[_]%'
-
-	--PRINT @SQL_VIEW
-	EXECUTE(@SQL_VIEW)
-
-END
-GO
-
 --Dropeo tablas de hechos
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_descuento')
@@ -93,7 +13,6 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_envio')
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_fact_compra')
 	DROP TABLE INFORMADOS.BI_fact_compra
-
 
 --Dropeo Tablas dimensionales
 
@@ -123,6 +42,114 @@ IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_rango_etario')
 
 IF EXISTS (SELECT name FROM sys.tables WHERE name = 'BI_provincia')
 	DROP TABLE INFORMADOS.BI_provincia
+
+------------------------------------------
+-- Eliminacion de vistas
+------------------------------------------
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_ganancia_mensual_canal')
+	DROP VIEW INFORMADOS.vw_ganancia_mensual_canal
+GO
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_mayor_rentabilidad_anual')
+	DROP VIEW INFORMADOS.vw_mayor_rentabilidad_anual
+GO
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_categorias_por_rango_etarios')
+	DROP VIEW INFORMADOS.vw_categorias_por_rango_etarios
+GO
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos')
+	DROP VIEW INFORMADOS.vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos
+GO
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento')
+	DROP VIEW INFORMADOS.vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento
+GO
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_envios_a_provincia_por_mes')
+	DROP VIEW INFORMADOS.vw_envios_a_provincia_por_mes
+GO
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_valor_promedio_envio_x_provincia_x_medio_envio_anual')
+	DROP VIEW INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
+GO
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_aumento_promedio_precios_x_proveedor_anual')
+	DROP VIEW INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
+GO
+
+IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_tres_productos_mayor_cantidad_reposicion_x_mes')
+	DROP VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
+GO
+
+------------------------------------------
+-- Eliminacion de Store Procedures y Funciones
+------------------------------------------
+
+IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_tiempo')
+	DROP FUNCTION INFORMADOS.get_tiempo
+GO
+
+IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_rango_etario')
+	DROP FUNCTION INFORMADOS.get_rango_etario
+GO
+
+IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_aumento')
+	DROP FUNCTION INFORMADOS.get_aumento
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tiempos')
+	DROP PROCEDURE sp_migrar_bi_tiempos
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_categoria_producto')
+	DROP PROCEDURE sp_migrar_bi_categoria_producto
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_producto')
+	DROP PROCEDURE sp_migrar_bi_producto
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_rango_etario')
+	DROP PROCEDURE sp_migrar_bi_rango_etario
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_canal_venta')
+	DROP PROCEDURE sp_migrar_bi_canal_venta
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_descuento')
+	DROP PROCEDURE sp_migrar_bi_tipo_descuento
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_medio_pago_venta')
+	DROP PROCEDURE sp_migrar_bi_medio_pago_venta
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_envio')
+	DROP PROCEDURE sp_migrar_bi_tipo_envio
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_provincia')
+	DROP PROCEDURE sp_migrar_bi_provincia
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_compra')
+	DROP PROCEDURE sp_migrar_fact_compra
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_envio')
+	DROP PROCEDURE sp_migrar_fact_envio
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_venta')
+	DROP PROCEDURE sp_migrar_fact_venta
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_descuento')
+	DROP PROCEDURE sp_migrar_fact_descuento
+GO
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de tablas dimensionales --
@@ -226,14 +253,10 @@ id_canal int REFERENCES INFORMADOS.BI_canal_venta(id_canal_venta),
 id_medio_pago_venta int REFERENCES INFORMADOS.BI_medio_pago_venta(id_medio_pago_venta),
 importe_total_descuento decimal(18,2)
 );
-
+GO
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Creacion de funciones --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_tiempo')
-	DROP FUNCTION INFORMADOS.get_tiempo
-GO
 
 CREATE FUNCTION INFORMADOS.get_tiempo(@fecha DATE)
 RETURNS INT
@@ -241,10 +264,6 @@ AS
 BEGIN
 	RETURN (SELECT id_tiempo FROM INFORMADOS.BI_tiempo WHERE año = year(@fecha) and mes = month(@fecha))
 END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_rango_etario')
-	DROP FUNCTION INFORMADOS.get_rango_etario
 GO
 
 CREATE FUNCTION INFORMADOS.get_rango_etario(@fecha_nacimiento date)
@@ -256,10 +275,6 @@ BEGIN
 	RETURN (select id_rango_etario FROM INFORMADOS.BI_rango_etario
 			where (edad_minima <= @edad AND edad_maxima > @edad) OR (edad_minima <= @edad AND edad_maxima IS NULL))
 END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.objects WHERE [name] = 'get_aumento')
-	DROP FUNCTION INFORMADOS.get_aumento
 GO
 
 CREATE FUNCTION INFORMADOS.get_aumento(@anio int, @proveedor nvarchar(50), @producto nvarchar(50))
@@ -277,10 +292,6 @@ GO
 -- Creacion de procedimientos tablas dimensionales--
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tiempos')
-	DROP PROCEDURE sp_migrar_bi_tiempos
-GO
-
 CREATE PROCEDURE sp_migrar_bi_tiempos
 AS
 BEGIN
@@ -294,10 +305,6 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_categoria_producto')
-	DROP PROCEDURE sp_migrar_bi_categoria_producto
-GO
-
 CREATE PROCEDURE sp_migrar_bi_categoria_producto
 AS
 BEGIN
@@ -305,10 +312,6 @@ BEGIN
 	INSERT INTO INFORMADOS.BI_categoria_producto
 	SELECT * FROM INFORMADOS.categoria_producto
 END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_producto')
-	DROP PROCEDURE sp_migrar_bi_producto
 GO
 
 CREATE PROCEDURE sp_migrar_bi_producto
@@ -322,10 +325,6 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_rango_etario')
-	DROP PROCEDURE sp_migrar_bi_rango_etario
-GO
-
 CREATE PROCEDURE sp_migrar_bi_rango_etario
 AS
 BEGIN
@@ -337,10 +336,6 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_canal_venta')
-	DROP PROCEDURE sp_migrar_bi_canal_venta
-GO
-
 CREATE PROCEDURE sp_migrar_bi_canal_venta
 AS
 BEGIN
@@ -348,10 +343,6 @@ BEGIN
 	INSERT INTO INFORMADOS.BI_canal_venta
 	SELECT * FROM INFORMADOS.canal_venta
 END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_descuento')
-	DROP PROCEDURE sp_migrar_bi_tipo_descuento
 GO
 
 CREATE PROCEDURE sp_migrar_bi_tipo_descuento
@@ -365,10 +356,6 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_medio_pago_venta')
-	DROP PROCEDURE sp_migrar_bi_medio_pago_venta
-GO
-
 CREATE PROCEDURE sp_migrar_bi_medio_pago_venta
 AS
 BEGIN
@@ -378,10 +365,6 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_tipo_envio')
-	DROP PROCEDURE sp_migrar_bi_tipo_envio
-GO
-
 CREATE PROCEDURE sp_migrar_bi_tipo_envio
 AS
 BEGIN
@@ -389,10 +372,6 @@ BEGIN
     INSERT INTO INFORMADOS.BI_tipo_envio
 	SELECT * FROM INFORMADOS.metodo_envio
 END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_bi_provincia')
-	DROP PROCEDURE sp_migrar_bi_provincia
 GO
 
 CREATE PROCEDURE sp_migrar_bi_provincia
@@ -408,10 +387,6 @@ GO
 -- Creacion de procedimientos tablas de hechos --
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_compra')
-	DROP PROCEDURE sp_migrar_fact_compra
-GO
-
 CREATE PROCEDURE sp_migrar_fact_compra
 AS
 BEGIN
@@ -425,10 +400,6 @@ BEGIN
 END
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_envio')
-	DROP PROCEDURE sp_migrar_fact_envio
-GO
-
 CREATE PROCEDURE sp_migrar_fact_envio
 AS
 BEGIN
@@ -440,10 +411,6 @@ BEGIN
 	INNER JOIN INFORMADOS.zona z ON e.id_zona = z.id_zona
     GROUP BY v.id_envio, INFORMADOS.get_tiempo(v.fecha), z.id_provincia, e.id_metodo_envio
 END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_venta')
-	DROP PROCEDURE sp_migrar_fact_venta
 GO
 
 CREATE PROCEDURE sp_migrar_fact_venta
@@ -461,10 +428,6 @@ BEGIN
 	JOIN INFORMADOS.variante_producto vp ON ppv.id_variante_producto = vp.id_variante_producto
 	GROUP BY ve.id_canal, ve.id_medio_pago_venta, INFORMADOS.get_tiempo(ve.fecha), INFORMADOS.get_rango_etario(c.fecha_nacimiento), vp.id_producto
 END
-GO
-
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'sp_migrar_fact_descuento')
-	DROP PROCEDURE sp_migrar_fact_descuento
 GO
 
 CREATE PROCEDURE sp_migrar_fact_descuento
@@ -517,10 +480,6 @@ GO
 -- medios de pagos utilizados en las mismas.
 -- columnas: canal de venta, año, mes, ganancias
 
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_ganancia_mensual_canal')
-	DROP VIEW INFORMADOS.vw_ganancia_mensual_canal
-GO
-
 CREATE VIEW INFORMADOS.vw_ganancia_mensual_canal
 AS
 	SELECT  ti.año [Año], ti.mes [Mes], cv.nombre_canal [Canal de Venta],
@@ -540,10 +499,6 @@ GO
 -- Para simplificar, no es necesario tener en cuenta los descuentos aplicados.
 -- columnas: producto, porcentaje
 
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_mayor_rentabilidad_anual')
-	DROP VIEW INFORMADOS.vw_mayor_rentabilidad_anual
-GO
-
 CREATE VIEW INFORMADOS.vw_mayor_rentabilidad_anual
 AS
 	SELECT TOP 5 vp.id_producto [Codigo Producto],
@@ -558,10 +513,6 @@ GO
 
 -- VISTA 3: Las 5 categorías de productos más vendidos por rango etario de clientes por mes. 
 -- columnas: rango_etareo, año, mes, categoria_nombre
-
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_categorias_por_rango_etarios')
-	DROP VIEW INFORMADOS.vw_categorias_por_rango_etarios
-GO
 
 CREATE VIEW INFORMADOS.vw_categorias_por_rango_etarios
 AS
@@ -581,10 +532,6 @@ GO
 --por medio de pago (en caso que aplique) y descuentos por medio de pago
 --(en caso que aplique).
 
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos')
-	DROP VIEW INFORMADOS.vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos
-GO
-
 CREATE VIEW INFORMADOS.vw_total_ingresos_por_medio_pago_x_mes_aplicando_descuentos
 AS
 	SELECT t.año [Año], t.mes [Mes], hv.id_medio_pago_venta [Medio Pago],
@@ -601,10 +548,6 @@ GO
 --VISTA 5: Importe total en descuentos aplicados según su tipo de descuento, por
 --canal de venta, por mes. Se entiende por tipo de descuento como los
 --correspondientes a envío, medio de pago, cupones, etc). 
-
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento')
-	DROP VIEW INFORMADOS.vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento
-GO
 
 CREATE VIEW INFORMADOS.vw_importe_total_en_descuentos_aplicados_segun_tipo_descuento
 AS
@@ -625,13 +568,11 @@ GO
 -- total de envío mensuales.
 -- columnas: provincia, año, mes, porcentaje
 
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_envios_a_provincia_por_mes')
-	DROP VIEW INFORMADOS.vw_envios_a_provincia_por_mes
-GO
-
 CREATE VIEW INFORMADOS.vw_envios_a_provincia_por_mes
 AS
-	select pr.nombre [Provincia], ti.mes [Mes],
+	SELECT ti.año [Año],
+		ti.mes [Mes],
+		pr.nombre [Provincia], 
 		ROUND(CAST(COUNT(te.nombre) AS FLOAT) / (
 			SELECT count(te2.nombre)
 			FROM INFORMADOS.BI_fact_envio vt2
@@ -642,15 +583,11 @@ AS
 	JOIN INFORMADOS.BI_fact_envio fe ON fe.id_provincia = pr.id_provincia
 	JOIN INFORMADOS.BI_tiempo ti ON ti.id_tiempo = fe.id_tiempo
 	JOIN INFORMADOS.BI_tipo_envio te ON te.id_tipo_envio = fe.id_tipo_envio
-	GROUP BY ti.mes, pr.nombre, ti.id_tiempo
+	GROUP BY ti.año, ti.mes, pr.nombre, ti.id_tiempo
 GO
 
 -- VISTA 7: Valor promedio de envío por Provincia por Medio De Envío anual.
 -- columnas: provincia, medio_envio, año, valor
-
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_valor_promedio_envio_x_provincia_x_medio_envio_anual')
-	DROP VIEW INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
-GO
 
 CREATE VIEW INFORMADOS.vw_valor_promedio_envio_x_provincia_x_medio_envio_anual
 AS
@@ -670,10 +607,6 @@ GO
 -- el mínimo todo esto divido el mínimo precio del año. Teniendo en cuenta
 -- que los precios siempre van en aumento.
 
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_aumento_promedio_precios_x_proveedor_anual')
-	DROP VIEW INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
-GO
-
 CREATE VIEW INFORMADOS.vw_aumento_promedio_precios_x_proveedor_anual
 AS
 	SELECT t.año [Año],
@@ -686,10 +619,6 @@ GO
 
 -- VISTA 9: Los 3 productos con mayor cantidad de reposición por mes.
 -- columnas: año, mes, codigo_prod1, nombre_prod2, codigo_prod2, nombre_prod2, codigo_prod3, nombre_prod3
-
-IF EXISTS(SELECT [name] FROM sys.views WHERE [name] = 'vw_tres_productos_mayor_cantidad_reposicion_x_mes')
-	DROP VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
-GO
 
 CREATE VIEW INFORMADOS.vw_tres_productos_mayor_cantidad_reposicion_x_mes
 AS
